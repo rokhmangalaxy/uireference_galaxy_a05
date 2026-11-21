@@ -6,9 +6,10 @@
   "type": "module",
   "scripts": {
     "build": "node tools/build.mjs",
-    "test": "node test/smoke.mjs && node test/bundle.test.mjs && node test/e2e-import.test.mjs",
+    "test": "node test/smoke.mjs && node test/layout.test.mjs && node test/bundle.test.mjs && node test/e2e-import.test.mjs",
     "serve": "node tools/serve.mjs",
-    "rom": "node tools/make-test-rom.mjs"
+    "rom": "node tools/make-test-rom.mjs",
+    "probe": "node tools/probe-layout.mjs"
   },
   "devDependencies": {
     "esbuild": "^0.28.2",

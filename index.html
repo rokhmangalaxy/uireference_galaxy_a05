@@ -24,8 +24,11 @@
   }
   * { box-sizing: border-box; }
   html, body { height: 100%; }
+  html { overflow-x: hidden; }
   body {
     margin: 0;
+    overflow-x: hidden;
+    max-width: 100dvw;
     background: radial-gradient(120% 90% at 50% 0%, #182235 0%, var(--bg) 60%);
     color: var(--ink);
     font: 15px/1.45 ui-sans-serif, system-ui, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
@@ -36,9 +39,17 @@
   .shell {
     min-height: 100dvh;
     display: grid;
-    grid-template-rows: auto 1fr auto;
+    /* minmax(0, 1fr) instead of the implicit `auto` column: an auto track is
+       sized from its widest child's min-content, so an oversized canvas used
+       to stretch the whole page past the screen width. */
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto;
     padding: max(10px, env(safe-area-inset-top)) 12px calc(12px + var(--safe-b));
     gap: 10px;
+    /* A canvas that is even one pixel wider than the column makes the whole
+       page scrollable sideways in a WebView. Every child is clipped instead. */
+    max-width: 100dvw;
+    padding-inline: max(12px, env(safe-area-inset-left)) max(12px, env(safe-area-inset-right));
   }
 
   /* ---------------------------------------------------------- top bar -- */
@@ -103,6 +114,8 @@
     position: relative;
     display: grid;
     place-items: center;
+    min-width: 0;
+    min-height: 0;
     border-radius: var(--radius);
     background:
       linear-gradient(180deg, #0e1520, #0a0f16);
@@ -123,6 +136,8 @@
   }
   #screen {
     display: block;
+    max-width: 100%;
+    max-height: 100%;
     image-rendering: pixelated;
     image-rendering: crisp-edges;
     background: #000;
@@ -291,7 +306,7 @@
   /* ------------------------------------------------------------ pads -- */
   .controls {
     display: grid;
-    grid-template-columns: 1fr auto;
+    grid-template-columns: minmax(0, 1fr) auto;
     gap: 14px;
     align-items: center;
     padding: 2px 2px 0;
@@ -333,7 +348,7 @@
 
   .pad-right {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: auto auto;
     gap: 10px 8px;
     justify-items: center;
     align-items: center;
@@ -423,16 +438,42 @@
     .stage::after { display: none; }
     .menu, #toast, .btn, .icon-btn, .round { transition: none; }
   }
-  @media (orientation: landscape) and (max-height: 560px) {
-    .shell { grid-template-rows: auto 1fr; }
-    .bar { min-height: 40px; }
+  /* Landscape: the pads float over the stage edges so the canvas keeps every
+     pixel it can get. The pads live in one fixed row: no middle column, which
+     is what used to push B/A into the centre of the screen. */
+  @media (orientation: landscape) and (max-height: 620px) {
+    .shell {
+      grid-template-rows: auto minmax(0, 1fr);
+      padding-left: max(10px, env(safe-area-inset-left));
+      padding-right: max(10px, env(safe-area-inset-right));
+    }
+    .bar { min-height: 38px; }
+    .stage {
+      border-radius: 14px;
+      /* the pads float over the bottom edge; keep the picture clear of them */
+      padding-bottom: max(10px, 5dvh);
+    }
     .controls {
-      position: fixed; inset: auto 0 calc(6px + var(--safe-b)) 0;
-      padding: 0 14px; grid-template-columns: auto 1fr auto;
+      position: fixed;
+      left: max(12px, env(safe-area-inset-left));
+      right: max(12px, env(safe-area-inset-right));
+      bottom: calc(10px + var(--safe-b));
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 16px;
       pointer-events: none;
+      z-index: 4;
     }
     .dpad, .pad-right { pointer-events: auto; }
+    .dpad { width: min(30dvh, 132px); }
+    .pad-right { grid-template-columns: auto auto; gap: 8px 10px; }
+    .round { width: 56px; height: 56px; font-size: 15px; }
+    .small-pills { gap: 6px; }
+    .pill { padding: 6px 11px; font-size: 10px; }
     .shell.playing .stage { min-height: 0; }
+    .shell.playing .stage .hud { display: none; }
+    .idle { padding: 8px 12px; font-size: 11.5px; }
   }
   html.native body {
     padding-top: env(safe-area-inset-top);

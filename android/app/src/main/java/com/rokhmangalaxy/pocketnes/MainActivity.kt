@@ -88,6 +88,11 @@ class MainActivity : AppCompatActivity() {
             setBackgroundColor(0xFF0B0F14.toInt())
             overScrollMode = View.OVER_SCROLL_NEVER
             isHapticFeedbackEnabled = true
+            // The page owns all scrolling; the WebView itself must never be
+            // able to scroll horizontally (that was the "scroll to the left"
+            // symptom) nor bounce vertically.
+            isHorizontalScrollBarEnabled = false
+            isVerticalScrollBarEnabled = false
             settings.apply {
                 javaScriptEnabled = true
                 domStorageEnabled = true
@@ -96,8 +101,18 @@ class MainActivity : AppCompatActivity() {
                 allowContentAccess = false
                 mediaPlaybackRequiresUserGesture = false
                 cacheMode = WebSettings.LOAD_DEFAULT
-                useWideViewPort = true
-                loadWithOverviewMode = true
+                // WebView used to grow the layout viewport whenever the page
+                // was even slightly too wide, which let the whole UI be panned
+                // sideways. The page is already responsive, so the viewport
+                // must simply match the device width.
+                useWideViewPort = false
+                loadWithOverviewMode = false
+                // Keep 100dvh == the real visible height while the on-screen
+                // keyboard or system bars resize the window.
+                setSupportZoom(false)
+                builtInZoomControls = false
+                displayZoomControls = false
+                textZoom = 100
                 mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
             }
             addJavascriptInterface(Bridge(), "AndroidBridge")
@@ -154,6 +169,15 @@ class MainActivity : AppCompatActivity() {
 
         setContentView(webView)
         webView.loadUrl("$BASE_URL/index.html")
+
+        // Rotation, system bars, split-screen and the keyboard all resize the
+        // WebView without a JS "resize" event we can rely on. Refit the canvas
+        // whenever the view's own bounds change so it never overflows again.
+        webView.addOnLayoutChangeListener { _, left, top, right, bottom, oL, oT, oR, oB ->
+            if (right - left != oR - oL || bottom - top != oB - oT) {
+                runJs("window.__gunNacResize && window.__gunNacResize();")
+            }
+        }
 
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     }

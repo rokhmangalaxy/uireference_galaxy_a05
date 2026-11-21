@@ -170,6 +170,26 @@ function hideLoader() {
 function showStage(playing) {
   els.shell.classList.toggle("playing", playing);
   els.title.textContent = playing ? state.romName || "GAME" : "GUN NAC";
+  // Entering/leaving "playing" changes the stage height (the idle bar is
+  // hidden), so the canvas has to be re-fitted on the next frame.
+  refitScreen();
+}
+
+/** Re-fits the canvas to whatever room the stage currently has. */
+function refitScreen() {
+  const screen = state.player?.screen;
+  if (!screen) return;
+  const run = () => screen.resize();
+  if (typeof requestAnimationFrame === "function") {
+    requestAnimationFrame(() => {
+      run();
+      // A second pass catches late layout shifts (menu transition, safe-area
+      // insets reported after the first frame, Android bars settling).
+      requestAnimationFrame(run);
+    });
+  } else {
+    run();
+  }
 }
 
 // ------------------------------------------------------------- loading ----
@@ -541,6 +561,10 @@ function log(message) {
   } catch {}
 }
 window.__gunNacPause = () => state.player?.pause();
+// Called by the Kotlin shell whenever the WebView changes size: rotation,
+// system bars appearing, split-screen, keyboard. Without this the canvas kept
+// the size it was given before the change and could overflow the stage.
+window.__gunNacResize = () => refitScreen();
 window.__gunNacResume = () => {
   if (state.romKey && !state.paused) state.player?.resume();
 };

@@ -12,6 +12,41 @@ import { NES } from "jsnes";
 const W = 256;
 const H = 240;
 
+/**
+ * Sizes the 256x240 canvas so it always fits inside `availW x availH`.
+ *
+ * Fitting matters more than crispness: a canvas even one pixel wider than its
+ * column makes an Android WebView scroll sideways, which is what used to push
+ * the game picture off the left edge. So this never rounds UP, and it also
+ * allows shrinking below 1x (the old code forced a 1x minimum, so on short
+ * landscape stages the 256 px canvas overflowed the stage).
+ *
+ *   computeScreenSize(388, 500) -> { width: 384, height: 360 }   // 1.5x
+ *   computeScreenSize(200, 300) -> { width: 192, height: 180 }   // 0.75x
+ */
+export function computeScreenSize(availW, availH) {
+  const w = Number.isFinite(availW) && availW > 0 ? availW : W;
+  const h = Number.isFinite(availH) && availH > 0 ? availH : H;
+  const raw = Math.min(w / W, h / H);
+  if (!Number.isFinite(raw) || raw <= 0) return { width: W, height: H };
+
+  let scale;
+  if (raw >= 2) {
+    scale = Math.floor(raw); // whole-pixel upscales stay crisp
+  } else if (raw >= 0.25) {
+    scale = Math.floor(raw * 16) / 16; // fine steps when downscaling
+  } else {
+    scale = raw; // tiny box: don't quantise into nothing
+  }
+
+  // Round down so the result always fits, then clamp to at least one pixel:
+  // a zero-height canvas would hide the picture entirely on absurdly small
+  // boxes (Android split-screen, a 1-px stage during rotation).
+  const width = Math.max(1, Math.min(Math.floor(W * scale), Math.floor(w)));
+  const height = Math.max(1, Math.min(Math.floor(H * scale), Math.floor(h)));
+  return { width, height };
+}
+
 // jsnes packs pixels as 0xRRGGBB in a Uint32Array; the canvas wants
 // little-endian ABGR, which is what we assemble in the ImageData buffer.
 class Screen {
@@ -24,19 +59,46 @@ class Screen {
     this.buf32 = new Uint32Array(this.image.data.buffer);
     this.pending = null;
     this.resize();
-    window.addEventListener("resize", () => this.resize());
+    // Re-fit on every geometry change: rotation, the on-screen keyboard, a
+    // menu sliding in, Android split-screen, or entering fullscreen. Listening
+    // to the element (not just the window) also covers layout changes that do
+    // not fire a window resize event.
+    const refit = () => this.resize();
+    if (typeof window !== "undefined" && window.addEventListener) {
+      window.addEventListener("resize", refit);
+      window.addEventListener("orientationchange", refit);
+      if (typeof document !== "undefined" && document.addEventListener) {
+        document.addEventListener("fullscreenchange", refit);
+      }
+      if (typeof ResizeObserver !== "undefined") {
+        this.resizeObserver = new ResizeObserver(refit);
+        if (this.canvas.parentElement) this.resizeObserver.observe(this.canvas.parentElement);
+      }
+    }
   }
 
   resize() {
     const parent = this.canvas.parentElement;
     if (!parent) return;
-    const pw = parent.clientWidth;
-    const ph = parent.clientHeight;
-    const scale = Math.max(1, Math.min(pw / W, ph / H));
-    // Integer scale keeps pixels crisp; allow fractional for tiny screens.
-    const px = scale >= 2 ? Math.floor(scale) : scale;
-    this.canvas.style.width = `${Math.round(W * px)}px`;
-    this.canvas.style.height = `${Math.round(H * px)}px`;
+    // jsdom and the bundle test stub the parent element with a bare object, so
+    // fall back to clientWidth/clientHeight when getBoundingClientRect is gone.
+    const box =
+      typeof parent.getBoundingClientRect === "function"
+        ? parent.getBoundingClientRect()
+        : { width: parent.clientWidth, height: parent.clientHeight };
+    const cs =
+      typeof window !== "undefined" && typeof window.getComputedStyle === "function"
+        ? window.getComputedStyle(parent)
+        : null;
+    const num = (v) => (Number.isFinite(parseFloat(v)) ? parseFloat(v) : 0);
+    // The stage has padding and a border; the canvas must fit INSIDE them.
+    const padX = cs ? num(cs.paddingLeft) + num(cs.paddingRight) : 0;
+    const padY = cs ? num(cs.paddingTop) + num(cs.paddingBottom) : 0;
+    const lineX = cs ? num(cs.borderLeftWidth) + num(cs.borderRightWidth) : 0;
+    const lineY = cs ? num(cs.borderTopWidth) + num(cs.borderBottomWidth) : 0;
+    const size = computeScreenSize(box.width - padX - lineX, box.height - padY - lineY);
+    this.canvas.style.width = `${size.width}px`;
+    this.canvas.style.height = `${size.height}px`;
   }
 
   setFrame(buffer) {
@@ -431,6 +493,6 @@ export function createPlayer({ canvas, onFrame, onError } = {}) {
 
 // Explicit global assignment (works for <script> tags and for test harnesses
 // that evaluate the bundle in a sandboxed scope).
-const api = { createPlayer, Screen, Audio, BTN };
+const api = { createPlayer, Screen, Audio, BTN, computeScreenSize };
 if (typeof window !== "undefined") window.GunNacEmulator = api;
 globalThis.GunNacEmulator = api;

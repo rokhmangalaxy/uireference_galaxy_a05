@@ -49,8 +49,11 @@ jobs:
           test -f dist/emulator.js
           test -f android/app/src/main/assets/web/index.html
           node test/smoke.mjs
+          node test/smoke.mjs test/fixtures/test-mmc3.nes
+          node test/layout.test.mjs
           node test/bundle.test.mjs
           node test/e2e-import.test.mjs
+          node tools/probe-layout.mjs
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
