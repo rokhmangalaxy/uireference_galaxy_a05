@@ -8,6 +8,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performScrollTo
 import org.junit.Rule
 import org.junit.Test
 
@@ -23,10 +24,10 @@ class VisualBuilderTest {
         compose.onNodeWithTag("builder_text").performTextClearance()
         compose.onNodeWithTag("builder_text").performTextInput("Judul baru")
         compose.onNodeWithText("Selesai").performClick()
-        compose.onNodeWithText("Judul baru").assertIsDisplayed()
+        compose.onNodeWithText("Judul baru").performScrollTo().assertIsDisplayed()
         compose.activityRule.scenario.recreate()
         compose.waitForIdle()
-        compose.onNodeWithText("Judul baru").assertIsDisplayed()
+        compose.onNodeWithText("Judul baru").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("builder_export").assertIsDisplayed()
     }
 
@@ -41,6 +42,6 @@ class VisualBuilderTest {
         // The second row is visible without scrolling in the drawer.
         compose.onNodeWithTag("style_menu_2").performClick()
         compose.onNodeWithTag("toolbar_style").assertTextContains("Dark Mode Elegan")
-        compose.onNodeWithText("Desain saya").assertIsDisplayed()
+        compose.onNodeWithText("Desain saya").performScrollTo().assertIsDisplayed()
     }
 }

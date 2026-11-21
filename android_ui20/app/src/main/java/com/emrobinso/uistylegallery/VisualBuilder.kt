@@ -24,6 +24,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.layer.drawLayer
@@ -39,6 +40,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -105,6 +107,8 @@ fun VisualBuilderScreen(modifier: Modifier = Modifier) {
     var pendingUri by remember { mutableStateOf<Uri?>(null) }
     var exporting by remember { mutableStateOf(false) }
     val layer = rememberGraphicsLayer()
+    val canvasScroll = rememberScrollState()
+    val scope = rememberCoroutineScope()
     val createPng = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("image/png")) { uri ->
         if (uri != null) pendingUri = uri
     }
@@ -182,7 +186,12 @@ fun VisualBuilderScreen(modifier: Modifier = Modifier) {
                                     onDragEnd = { latestFinishDrag() }, onDragCancel = { drag = null },
                                     onDrag = { change, amount -> change.consume(); drag = drag?.let { it.copy(point = it.point + amount) } }
                                 )
-                            }.clickable { insert(kind) }.testTag("palette_${kind.name}")
+                            }.clickable {
+                                if (items.size < MAX_ELEMENTS) {
+                                    insert(kind)
+                                    scope.launch { withFrameNanos { }; canvasScroll.animateScrollTo(canvasScroll.maxValue) }
+                                } else insert(kind)
+                            }.testTag("palette_${kind.name}")
                     ) {
                         Column(Modifier.width(70.dp).padding(vertical = 9.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                             Icon(kind.icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(21.dp))
@@ -198,7 +207,7 @@ fun VisualBuilderScreen(modifier: Modifier = Modifier) {
                 Text("${items.size} / $MAX_ELEMENTS elemen", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Spacer(Modifier.height(6.dp))
-            Box(Modifier.weight(1f).fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .45f)).verticalScroll(rememberScrollState()).padding(horizontal = 22.dp, vertical = 12.dp), contentAlignment = Alignment.TopCenter) {
+            Box(Modifier.weight(1f).fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .45f)).verticalScroll(canvasScroll).padding(horizontal = 22.dp, vertical = 12.dp), contentAlignment = Alignment.TopCenter) {
                 Column(
                     Modifier.fillMaxWidth().widthIn(max = 380.dp).heightIn(min = 440.dp)
                         .onGloballyPositioned { canvasBounds = it.boundsInRoot() }
@@ -213,7 +222,10 @@ fun VisualBuilderScreen(modifier: Modifier = Modifier) {
                     items.forEach { element ->
                         key(element.id) {
                             Box(
-                                Modifier.fillMaxWidth().onGloballyPositioned { elementBounds[element.id] = it.boundsInRoot() }
+                                Modifier.fillMaxWidth().onGloballyPositioned {
+                                    // Use unclipped positions so drops are ordered correctly in a scrolled canvas.
+                                    elementBounds[element.id] = Rect(it.localToRoot(Offset.Zero), Size(it.size.width.toFloat(), it.size.height.toFloat()))
+                                }
                                     .then(if (!exporting && selectedId == element.id) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, MaterialTheme.shapes.small) else Modifier)
                                     .clickable(enabled = !exporting) { selectedId = element.id }
                                     .testTag("builder_item_${element.id}")
