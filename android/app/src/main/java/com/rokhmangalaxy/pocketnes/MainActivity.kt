@@ -50,8 +50,7 @@ class MainActivity : AppCompatActivity() {
     private val pendingJs = ArrayDeque<String>()
     private var webReady = false
 
-    /** Backup copy of the most recent ROM, see [persistLastRom]. */
-    private val lastRomFile = java.util.concurrent.atomic.AtomicReference<File?>(null)
+    /** Guards the one-shot "restore the last ROM from our backup" attempt. */
     private var restoreChecked = false
 
     private val pickRom: ActivityResultLauncher<Array<String>> =
@@ -290,7 +289,6 @@ class MainActivity : AppCompatActivity() {
                 FileOutputStream(target).use { output -> input.copyTo(output) }
             }
             File(dir, "name.txt").writeText(name)
-            lastRomFile.value = target
         } catch (e: Exception) {
             Log.w(TAG, "could not persist ROM copy: ${e.message}")
         }
@@ -471,6 +469,7 @@ class MainActivity : AppCompatActivity() {
         private const val MAX_ROM_BYTES = 8 * 1024 * 1024
         private const val HANDLED_EXTRA = "cc.rom.handled"
         private const val CHUNK_CHARS = 60_000
+        private const val TAG = "PocketNesBridge"
         private val SUPPORTED = listOf(".nes", ".fds", ".unf", ".unif")
     }
 }
