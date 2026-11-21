@@ -3,14 +3,18 @@
  * checks that the emulator produced a frame with visible pixels and that the
  * CPU executed the program (the ROM's frame counter at $10 advances).
  *
- *   node test/smoke.mjs            # builds test/fixtures/test.nes on the fly
+ *   node test/smoke.mjs            # builds the NROM test ROM on the fly
+ *   node test/smoke.mjs mmc3       # builds the mapper-4 (MMC3) test ROM on the fly
  *   node test/smoke.mjs myrom.nes  # sanity-check your own legally dumped ROM
+ *
+ * Asking for the MMC3 case by name (instead of by file path) keeps the fixture
+ * out of git: test/fixtures/*.nes is gitignored because it is generated.
  */
 import { readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildTestRom } from "../tools/make-test-rom.mjs";
+import { buildTestRom, buildMmc3TestRom } from "../tools/make-test-rom.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 // Import the ESM source: the package's webpack dist has no exports.
@@ -20,7 +24,12 @@ const jsnesSrc = pathToFileURL(
 const { NES } = await import(jsnesSrc);
 
 const romPath = process.argv[2];
-const romBytes = romPath ? readFileSync(romPath) : Buffer.from(buildTestRom());
+const romBytes =
+  romPath === "mmc3"
+    ? Buffer.from(buildMmc3TestRom())
+    : romPath
+      ? readFileSync(romPath)
+      : Buffer.from(buildTestRom());
 const rom = new Uint8Array(romBytes.buffer, romBytes.byteOffset, romBytes.length);
 
 let lastFrame = null;
