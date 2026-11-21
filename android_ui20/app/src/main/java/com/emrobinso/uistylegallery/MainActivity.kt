@@ -236,7 +236,8 @@ private data class BottomDestination(val label: String, val icon: ImageVector)
 private val bottomDestinations = listOf(
     BottomDestination("Beranda", Icons.Default.Home),
     BottomDestination("Rencana", Icons.Default.EditNote),
-    BottomDestination("Komponen", Icons.Default.Widgets)
+    BottomDestination("Komponen", Icons.Default.Widgets),
+    BottomDestination("Builder", Icons.Default.DesignServices)
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -246,7 +247,7 @@ private fun GalleryScreen(style: UiStyle, index: Int, drawerClosed: Boolean, onM
     val scope = rememberCoroutineScope()
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var destination by rememberSaveable { mutableIntStateOf(0) }
-    val scrollStates = listOf(rememberScrollState(), rememberScrollState(), rememberScrollState())
+    val scrollStates = listOf(rememberScrollState(), rememberScrollState(), rememberScrollState(), rememberScrollState())
     BackHandler(enabled = destination != 0 && drawerClosed) { destination = 0 }
     var name by rememberSaveable { mutableStateOf("") }
     var selectedCategory by rememberSaveable { mutableStateOf("Desain") }
@@ -294,6 +295,9 @@ private fun GalleryScreen(style: UiStyle, index: Int, drawerClosed: Boolean, onM
             )
         }
     ) { insets ->
+        if (destination == 3) {
+            VisualBuilderScreen(Modifier.fillMaxSize().padding(insets))
+        } else {
         Column(
             Modifier.fillMaxSize().padding(insets).verticalScroll(scrollStates[destination.coerceIn(bottomDestinations.indices)])
                 .padding(horizontal = 20.dp),
@@ -421,6 +425,7 @@ private fun GalleryScreen(style: UiStyle, index: Int, drawerClosed: Boolean, onM
                 }
             }
             Text("BUKA MENU ☰ UNTUK MEMBANDINGKAN 20 GAYA", style = MaterialTheme.typography.labelSmall, color = style.muted, modifier = Modifier.padding(bottom = 26.dp))
+        }
         }
     }
     if (showDialog) {
