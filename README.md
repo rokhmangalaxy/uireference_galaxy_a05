@@ -50,12 +50,12 @@ release asset (tidak perlu login):
 **https://github.com/rokhmangalaxy/uireference_galaxy_a05/releases**
 
 - Paket `com.rokhmangalaxy.pocketnes` · minSdk 24 (Android 7+) · targetSdk 35
-- Ukuran 3.671.754 byte (± 3,5 MB) · **tanpa izin INTERNET**
-- Release terbaru: **apk-8** — sha256
-  `7519fae3d133fe988acd0e2e43c0c989f57acdadc7677d70c8b36ee047f5d6ac`
+- Ukuran 3.673.422 byte (± 3,5 MB) · **tanpa izin INTERNET**
+- Release terbaru: **apk-10** — sha256
+  `c3113d2ea832a8dcfe678b7e6980c219c2b34d787cd44ed432ba4a98c1c6f442`
   (dibuat & diverifikasi CI, termasuk `apksigner verify`). Ini build pertama
-  yang import ROM-nya benar-benar jalan; apk-7 dan sebelumnya **jangan**
-  dipakai lagi.
+  dengan **layout yang benar** (tidak ada scroll ke samping, tombol B/A di
+  kanan juga saat landscape); apk-8 dan sebelumnya **jangan** dipakai lagi.
 - Install: unduh di HP → izinkan *Install unknown apps* untuk browser → buka
   APK. Buka file `.nes` dari file manager → *Open with* → **Pocket NES**.
 
@@ -115,15 +115,34 @@ node test/smoke.mjs "roms/gun-nac-usa.nes"
 ```
 
 Build Android dikompilasi di GitHub Actions (JDK 17 + Android SDK 35).
-Release `apk-8` adalah build yang lolos: `assembleDebug` sukses, `apksigner
+Release `apk-10` adalah build yang lolos: `assembleDebug` sukses, `apksigner
 verify` lolos, dan APK memuat `assets/web/` (index.html, emulator.js, app.js,
 roms/test.nes) dengan paket `com.rokhmangalaxy.pocketnes`.
 
-Sebelum build, `npm test` menjalankan tiga lapis uji: smoke core (mapper 0 **dan
-mapper 4/MMC3** — mapper yang dipakai Gun Nac), uji bundle hasil build, dan
-`test/e2e-import.test.mjs` yang meniru alur import di WebView (baik lewat
-`<input type=file>` maupun lewat bridge Kotlin, termasuk ROM yang dikirim
-bertahap 60 ribu karakter).
+Sebelum build, `npm test` menjalankan empat lapis uji: smoke core (mapper 0
+**dan mapper 4/MMC3** — mapper yang dipakai Gun Nac), `test/layout.test.mjs`
+(kanvas tidak boleh melebihi kotaknya di layar portrait/landscape/desktop, plus
+penjaga markup supaya halaman tidak bisa digeser ke samping), uji bundle hasil
+build, dan `test/e2e-import.test.mjs` yang meniru alur import di WebView (baik
+lewat `<input type=file>` maupun lewat bridge Kotlin, termasuk ROM yang dikirim
+bertahap 60 ribu karakter). `npm run probe` menampilkan tabel ukuran kanvas
+untuk beberapa ukuran layar HP sungguhan.
+
+## 3b. Layout di HP (diperbaiki di apk-10)
+
+Kalau dulu gambar game melebar ke kiri dan harus di-scroll, atau tombol B
+muncul di tengah layar saat landscape, penyebabnya:
+
+- Kanvas 256×240 diukur hanya dari **tinggi** area bermain, jadi di layar sempit
+  kanvas lebih lebar dari kotaknya dan mendorong seluruh halaman.
+- Kolom grid halaman ikut melebar mengikuti kanvas, sehingga WebView bisa
+  digeser ke samping.
+- Aturan landscape lama membuat baris kontrol 3 kolom; kolom tengah berisi
+  tombol A/B, jadi tombolnya tampil di tengah layar.
+
+Sekarang ukuran kanvas selalu mengikuti kotak terkecil (lebar **dan** tinggi,
+boleh mengecil di bawah 1×), halaman tidak bisa digeser ke samping, dan baris
+kontrol landscape menempel di tepi kiri/kanan layar.
 
 ## 6. Fitur
 
