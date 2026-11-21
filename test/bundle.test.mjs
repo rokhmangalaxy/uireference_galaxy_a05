@@ -17,7 +17,13 @@ function makeCanvas() {
     width: 0,
     height: 0,
     style: {},
-    parentElement: { clientWidth: 800, clientHeight: 600 },
+    parentElement: {
+      clientWidth: 800,
+      clientHeight: 600,
+      // Screen.resize() prefers getBoundingClientRect; without it the stub
+      // falls back to clientWidth/clientHeight.
+      getBoundingClientRect: () => ({ width: 800, height: 600, top: 0, left: 0 }),
+    },
     getContext() {
       return {
         createImageData: (w, h) => ({
@@ -83,7 +89,7 @@ const checks = [
   [/<input type="file" id="file"/, "#file input exists"],
   [/accept="[^"]*\.nes/, "accept includes .nes"],
   [/class="sr"[^>]*>/, "file input stays in the DOM (sr, not removed)"],
-  [/<div class="slots">[\s\S]*data-action="save1"[\s\S]*data-action="load1"/, "slot 1 buttons inside .slots"],
+  [/<div class="slots"[^>]*>[\s\S]*data-action="save1"[\s\S]*data-action="load1"/, "slot 1 buttons inside .slots"],
   [/data-action="save2"[\s\S]*data-action="load2"/, "slot 2 buttons present"],
 ];
 let domOk = true;

@@ -115,6 +115,36 @@ check(
   /\.shell\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/s.test(html),
 );
 
+// -------------------------------------------------------- v11 UI guards ----
+// The header collapses while playing so the game gets the full screen.
+check(
+  "playing state collapses the header into a floating chip",
+  /\.shell\.playing \.bar\s*\{[^}]*position:\s*fixed/s.test(html) &&
+    /\.shell\.playing\s*\{[^}]*grid-template-rows:\s*minmax\(0,\s*1fr\)\s+auto/s.test(html),
+);
+check("a collapse control exists", /id="btn-chrome"/.test(html));
+check("floating chip exists", /class="chrome" id="chrome"/.test(html) && /id="chip-menu"/.test(html));
+
+// Drag-to-place controls must not let a pad be dragged off screen: the JS
+// clamps to the viewport, and edit mode must visually mark the pads.
+check("edit mode marks the draggable pads", /\.shell\.editing \.dpad[\s\S]{0,200}outline:/.test(html));
+check("edit bar exists", /class="editbar" id="editbar"/.test(html));
+check("edit mode has a portrait/landscape switch", /id="edit-portrait"/.test(html) && /id="edit-landscape"/.test(html));
+
+// Button skins must be variable-driven so a skin is a token change, not a fork.
+check("A/B buttons read skin variables", /\.round\s*\{[^}]*background:\s*var\(--a-bg\)/s.test(html));
+check("B button has its own skin variable", /\.round\.b\s*\{[^}]*var\(--b-bg\)/s.test(html));
+check("at least one alternate skin is defined", /\[data-skin="(arcade|retro|mono|neon)"\]/.test(html));
+check("skin gallery container exists", /id="skin-grid"/.test(html));
+
+// Save slots show an automatic screenshot.
+check("slot previews exist for both slots", /data-thumb="1"/.test(html) && /data-thumb="2"/.test(html));
+check("slot preview styling exists", /\.slot-preview img/.test(html));
+
+// State import/export controls.
+check("state export button exists", /id="btn-export-state"/.test(html));
+check("state import input exists", /id="state-file"/.test(html));
+
 // ------------------------------------------------------------------ done ----
 if (failures) {
   console.log(`\nFAILED: ${failures} layout check(s)`);

@@ -26,6 +26,8 @@ import androidx.webkit.WebViewAssetLoader
 import androidx.webkit.WebViewAssetLoader.AssetsPathHandler
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
+import java.io.File
+import java.io.FileOutputStream
 import java.util.zip.ZipInputStream
 
 /**
@@ -47,6 +49,10 @@ class MainActivity : AppCompatActivity() {
     /** Code queued until the page has signalled that app.js is live. */
     private val pendingJs = ArrayDeque<String>()
     private var webReady = false
+
+    /** Backup copy of the most recent ROM, see [persistLastRom]. */
+    private val lastRomFile = java.util.concurrent.atomic.AtomicReference<File?>(null)
+    private var restoreChecked = false
 
     private val pickRom: ActivityResultLauncher<Array<String>> =
         registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
@@ -95,6 +101,9 @@ class MainActivity : AppCompatActivity() {
             isVerticalScrollBarEnabled = false
             settings.apply {
                 javaScriptEnabled = true
+                // IndexedDB (the ROM library) lives in the WebView's data dir.
+                // If that dir is wiped the library and the auto-resume pointer
+                // vanish, which is exactly the "must import again" symptom.
                 domStorageEnabled = true
                 databaseEnabled = true
                 allowFileAccess = false
@@ -162,7 +171,10 @@ class MainActivity : AppCompatActivity() {
                 override fun onPageFinished(view: WebView, url: String) {
                     // Fallback: if app.js never calls onWebReady() (older build,
                     // JS error), flush anyway after the page settles.
-                    view.postDelayed({ if (!webReady) flushPendingJs() }, 1500)
+                    view.postDelayed({
+                        if (!webReady) flushPendingJs()
+                        maybeRestoreLastRom()
+                    }, 1500)
                 }
             }
         }
@@ -241,6 +253,11 @@ class MainActivity : AppCompatActivity() {
             runJs("window.__gunNacRomChunk && window.__gunNacRomChunk('$safeName', $index, '$chunk');")
         }
         runJs("window.__gunNacRomEnd && window.__gunNacRomEnd('$safeName');")
+        if (uri.scheme == "file" && uri.toString().contains("/lastrom/")) {
+            // replayed from our own backup on startup -- do not overwrite it
+        } else {
+            persistLastRom(uri, safeName)
+        }
         toast(getString(R.string.rom_loading, name))
     }
 
@@ -252,6 +269,66 @@ class MainActivity : AppCompatActivity() {
             pendingJs.addLast(code)
             if (pendingJs.size > 64) pendingJs.removeFirst()
         }
+    }
+
+    /**
+     * Keeps the auto-resume pointer and the imported ROM library alive across
+     * app restarts.
+     *
+     * WebView storage normally survives a restart, so this is a safety net for
+     * two real cases: (a) the WebView cache is cleared by the system under
+     * memory/disk pressure, (b) the user cleared the app's storage. In both
+     * cases app-private files are also gone, so nothing can help -- but when
+     * only IndexedDB was lost, the ROM copy in filesDir still lets the app
+     * reopen the same game without asking the user to pick it again.
+     */
+    private fun persistLastRom(uri: Uri, name: String) {
+        try {
+            val dir = File(filesDir, "lastrom").apply { mkdirs() }
+            val target = File(dir, "current.nes")
+            contentResolver.openInputStream(uri)?.use { input ->
+                FileOutputStream(target).use { output -> input.copyTo(output) }
+            }
+            File(dir, "name.txt").writeText(name)
+            lastRomFile.value = target
+        } catch (e: Exception) {
+            Log.w(TAG, "could not persist ROM copy: ${e.message}")
+        }
+    }
+
+    /**
+     * Runs once the page is ready: if the page says it has no library entry to
+     * resume, replay the app-private ROM copy so the user does not have to
+     * import the file again after the WebView storage was reset.
+     */
+    private fun maybeRestoreLastRom() {
+        if (restoreChecked) return
+        restoreChecked = true
+        runJs(
+            "(function(){try{" +
+                "var has = window.__gunNacHasLastRom ? window.__gunNacHasLastRom() : true;" +
+                "if (has) { window.__gunNacRestoreSkip && window.__gunNacRestoreSkip(); return; }" +
+                "AndroidBridge.requestLastRom && AndroidBridge.requestLastRom();" +
+                "}catch(e){} })();",
+        )
+    }
+
+    /** AndroidBridge hook: the page asks for the backup copy. */
+    private fun provideLastRomCopy() {
+        val file = File(File(filesDir, "lastrom"), "current.nes")
+        val nameFile = File(File(filesDir, "lastrom"), "name.txt")
+        if (!file.isFile || file.length() < 16L) return
+        val name = runCatching { nameFile.readText().trim() }.getOrDefault("game.nes")
+        val bytes = runCatching { file.readBytes() }.getOrNull() ?: return
+        val safeName = name.ifBlank { "game.nes" }
+        val payload = Base64.encodeToString(bytes, Base64.NO_WRAP)
+        val chunks = payload.chunked(CHUNK_CHARS)
+        runJs("window.__gunNacRomBegin && window.__gunNacRomBegin('$safeName', ${chunks.size});")
+        chunks.forEachIndexed { index, chunk ->
+            runJs("window.__gunNacRomChunk && window.__gunNacRomChunk('$safeName', $index, '$chunk');")
+        }
+        runJs("window.__gunNacRomEnd && window.__gunNacRomEnd('$safeName');")
+        toast(getString(R.string.rom_restored, safeName))
     }
 
     private fun flushPendingJs() {
@@ -310,6 +387,11 @@ class MainActivity : AppCompatActivity() {
     /** Optional JS -> Kotlin entry points. */
     inner class Bridge {
         @JavascriptInterface
+        fun requestLastRom() {
+            runOnUiThread { provideLastRomCopy() }
+        }
+
+        @JavascriptInterface
         fun vibrate(ms: Long) = webView.performHapticFeedback(
             android.view.HapticFeedbackConstants.VIRTUAL_KEY,
         )
@@ -344,7 +426,14 @@ class MainActivity : AppCompatActivity() {
         /** app.js calls this when the player is constructed and listening. */
         @JavascriptInterface
         fun onWebReady() {
-            runOnUiThread { flushPendingJs() }
+            runOnUiThread {
+                flushPendingJs()
+                // Only now can the page answer "do you still have a library
+                // entry for the last ROM?". If the WebView storage was wiped,
+                // the app-private copy is replayed so the user does not have
+                // to import the file again.
+                webView.postDelayed({ maybeRestoreLastRom() }, 900)
+            }
         }
 
         /** JS-side diagnostics land in logcat so "nothing happens" is debuggable. */

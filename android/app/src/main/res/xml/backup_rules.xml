@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  Never back up the last-ROM copy. It is a multi-megabyte duplicate that
+  Android would count against the user's 25 MB Auto Backup quota, and the user
+  already has the original .nes file.
+-->
 <full-backup-content>
-    <include domain="database" path="." />
-    <include domain="sharedpref" path="." />
+    <exclude domain="file" path="lastrom/" />
 </full-backup-content>

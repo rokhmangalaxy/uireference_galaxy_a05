@@ -6,4 +6,5 @@
     <string name="rom_unreadable">Tidak bisa membaca file ROM (coba pilih lewat Import ROM)</string>
     <string name="rom_loading">Memuat %1$s…</string>
     <string name="no_file_picker">Tidak ada aplikasi pemilih file di perangkat ini</string>
+    <string name="rom_restored">Memulihkan %1$s dari cadangan</string>
 </resources>

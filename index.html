@@ -475,6 +475,255 @@
     .shell.playing .stage .hud { display: none; }
     .idle { padding: 8px 12px; font-size: 11.5px; }
   }
+
+  /* ============================================================== v11 UI == */
+
+  /* 1. Immersive play: the header collapses to a floating chip so the game
+        gets the whole screen. Tapping the chip brings the bar back. */
+  .chrome {
+    position: fixed;
+    top: max(8px, env(safe-area-inset-top));
+    left: max(8px, env(safe-area-inset-left));
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    z-index: 20;
+    transition: opacity .18s ease, transform .18s ease;
+  }
+  .chrome .icon-btn {
+    width: 40px; height: 40px;
+    border-radius: 12px;
+    font-size: 16px;
+    background: #0f1620e6;
+    backdrop-filter: blur(8px);
+  }
+  .shell.playing:not(.chrome-open) .chrome { transform: translateY(-6px); opacity: .28; }
+  .shell.playing:not(.chrome-open) .chrome:active { opacity: .9; }
+  .shell.playing .bar {
+    position: fixed; inset: 0 0 auto 0; z-index: 22;
+    padding: max(8px, env(safe-area-inset-top)) 12px 8px;
+    background: linear-gradient(#0b0f14f5, #0b0f14e0);
+    backdrop-filter: blur(12px);
+    transform: translateY(-110%);
+    transition: transform .22s cubic-bezier(.2,.8,.2,1);
+  }
+  .shell.playing.chrome-open .bar { transform: none; }
+  .shell.playing .brand small { display: none; }
+  .shell.playing .brand h1 { font-size: 13px; }
+  /* with no header row, the stage takes the full height */
+  .shell.playing { grid-template-rows: minmax(0, 1fr) auto; }
+  .shell.playing .stage { grid-row: 1; }
+
+  /* 2. Custom "ROM was imported before" affordance */
+  .lib-resume { color: var(--accent-2); font-size: 7px; margin-left: 4px; vertical-align: middle; }
+
+  /* 3. Automatic screenshots: save-state cards show a live thumbnail */
+  .slot-preview {
+    display: grid;
+    grid-template-columns: 42px 1fr;
+    gap: 8px;
+    align-items: center;
+    min-height: 42px;
+  }
+  .slot-preview img {
+    width: 42px; height: 40px;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1px solid #223146;
+    image-rendering: pixelated;
+    background: #06090d;
+  }
+  .slot-preview .slot-when {
+    font-size: 10px;
+    color: var(--muted);
+    line-height: 1.3;
+    overflow: hidden;
+  }
+  .slot-preview .slot-when b { display: block; color: var(--ink); font-weight: 600; font-size: 10.5px; }
+
+  /* 4. Edit layout mode: pads become draggable, with guides */
+  .shell.editing .stage::before {
+    content: "";
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(to right, #39d3ff22 1px, transparent 1px),
+      linear-gradient(to bottom, #39d3ff22 1px, transparent 1px);
+    background-size: 25% 25%;
+    pointer-events: none;
+    z-index: 1;
+  }
+  .shell.editing .stage { outline: 2px dashed #39d3ffaa; outline-offset: -4px; }
+  .shell.editing .controls { pointer-events: none; }
+  .shell.editing .dpad,
+  .shell.editing .pad-right {
+    pointer-events: auto;
+    cursor: grab;
+    outline: 2px solid #39d3ff;
+    outline-offset: 2px;
+    border-radius: 16px;
+    box-shadow: 0 0 0 4px #39d3ff22, 0 10px 30px -10px #000;
+    touch-action: none;
+  }
+  .shell.editing .dpad:active,
+  .shell.editing .pad-right:active { cursor: grabbing; }
+  .shell.editing .dpad *,
+  .shell.editing .pad-right * { pointer-events: none; }
+  .editbar {
+    position: fixed;
+    left: 50%;
+    bottom: calc(14px + var(--safe-b));
+    transform: translateX(-50%);
+    display: none;
+    gap: 8px;
+    z-index: 30;
+    padding: 8px;
+    border-radius: 16px;
+    background: #0b1220f2;
+    border: 1px solid #2a3a52;
+    box-shadow: 0 20px 50px -20px #000;
+    max-width: min(94vw, 560px);
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .shell.editing .editbar { display: flex; }
+  .shell.editing .controls { opacity: .92; }
+  .edit-hint {
+    position: fixed;
+    left: 50%; top: max(10px, env(safe-area-inset-top));
+    transform: translateX(-50%);
+    display: none;
+    z-index: 30;
+    font-size: 11.5px;
+    color: #cfe4ff;
+    background: #0b1220e8;
+    border: 1px solid #2a3a52;
+    padding: 6px 12px;
+    border-radius: 999px;
+    text-align: center;
+    max-width: 92vw;
+  }
+  .shell.editing .edit-hint { display: block; }
+  .seg { display: inline-flex; border: 1px solid #2a3a52; border-radius: 10px; overflow: hidden; }
+  .seg button {
+    border: 0; background: #131c28; color: var(--muted);
+    padding: 8px 11px; font-size: 11.5px; cursor: pointer;
+  }
+  .seg button[aria-pressed="true"] { background: var(--accent); color: #221a00; font-weight: 700; }
+  .seg button:disabled { opacity: .45; cursor: not-allowed; }
+
+  /* 5. Button skin gallery */
+  .skin-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .skin-card {
+    border: 1px solid #223146;
+    background: var(--panel);
+    border-radius: 12px;
+    padding: 9px 6px 7px;
+    display: grid;
+    justify-items: center;
+    gap: 6px;
+    cursor: pointer;
+    font-size: 10.5px;
+    color: var(--muted);
+    letter-spacing: .04em;
+  }
+  .skin-card[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+  .skin-dots { display: flex; gap: 4px; }
+  .skin-dots i {
+    width: 13px; height: 13px; border-radius: 50%;
+    display: block; box-shadow: inset 0 -2px 0 #0004;
+  }
+  .seg-row { display: grid; gap: 6px; }
+  .seg-row > label { font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+
+  /* Button skins. The pads read real CSS variables so a skin is a 4-line rule. */
+  :root {
+    --a-bg: radial-gradient(circle at 35% 30%, #ffe066, #e0a400);
+    --a-ink: #2a1d00;
+    --a-shadow: 0 5px 0 #7a5a00, 0 8px 18px -8px #000;
+    --b-bg: radial-gradient(circle at 35% 30%, #ff8f9c, #d33b52);
+    --b-ink: #2a0008;
+    --b-shadow: 0 5px 0 #6f1d29, 0 8px 18px -8px #000;
+    --pad-bg: radial-gradient(circle at 50% 50%, #1b2534 0 32%, transparent 33%), linear-gradient(180deg, #151d29, #0f151e);
+    --pad-ink: #5d7290;
+    --pill-bg: #101822;
+    --pill-ink: var(--muted);
+  }
+  .round { background: var(--a-bg); color: var(--a-ink); box-shadow: var(--a-shadow); }
+  .round.b { background: var(--b-bg); color: var(--b-ink); box-shadow: var(--b-shadow); }
+  .dpad { background: var(--pad-bg); }
+  .dpad span { color: var(--pad-ink); }
+  .pill { background: var(--pill-bg); color: var(--pill-ink); }
+
+  [data-skin="arcade"] {
+    --a-bg: radial-gradient(circle at 35% 30%, #ff7ad9, #c5169a);
+    --a-ink: #2a0021;
+    --a-shadow: 0 5px 0 #6f0055, 0 8px 18px -8px #000;
+    --b-bg: radial-gradient(circle at 35% 30%, #9df2ff, #12b8e0);
+    --b-ink: #00212a;
+    --b-shadow: 0 5px 0 #0a5d70, 0 8px 18px -8px #000;
+    --pad-bg: radial-gradient(circle at 50% 50%, #251a33 0 32%, transparent 33%), linear-gradient(180deg, #1e1730, #120e1c);
+    --pad-ink: #9c7fd6;
+    --pill-bg: #171226;
+    --pill-ink: #b9a7e6;
+  }
+  [data-skin="retro"] {
+    --a-bg: radial-gradient(circle at 35% 30%, #ffd0a8, #e8663c);
+    --a-ink: #2b0f00;
+    --a-shadow: 0 5px 0 #8c3317, 0 8px 18px -8px #000;
+    --b-bg: radial-gradient(circle at 35% 30%, #d6f0a8, #7fae3a);
+    --b-ink: #14210a;
+    --b-shadow: 0 5px 0 #456020, 0 8px 18px -8px #000;
+    --pad-bg: radial-gradient(circle at 50% 50%, #2b241c 0 32%, transparent 33%), linear-gradient(180deg, #241f18, #171310);
+    --pad-ink: #c4a878;
+    --pill-bg: #1b1712;
+    --pill-ink: #c4a878;
+  }
+  [data-skin="mono"] {
+    --a-bg: radial-gradient(circle at 35% 30%, #ffffff, #b8c2cf);
+    --a-ink: #0b0f14;
+    --a-shadow: 0 5px 0 #5b6673, 0 8px 18px -8px #000;
+    --b-bg: radial-gradient(circle at 35% 30%, #e6edf6, #8f9dad);
+    --b-ink: #0b0f14;
+    --b-shadow: 0 5px 0 #3d4753, 0 8px 18px -8px #000;
+    --pad-bg: radial-gradient(circle at 50% 50%, #202836 0 32%, transparent 33%), linear-gradient(180deg, #1a212c, #10151d);
+    --pad-ink: #8ea0b7;
+    --pill-bg: #131a23;
+    --pill-ink: #8ea0b7;
+  }
+  [data-skin="neon"] {
+    --a-bg: radial-gradient(circle at 35% 30%, #c8ff5e, #5fd400);
+    --a-ink: #10200a;
+    --a-shadow: 0 0 14px #5fd40099, 0 5px 0 #2c6600, 0 8px 18px -8px #000;
+    --b-bg: radial-gradient(circle at 35% 30%, #ffb45e, #ff5c00);
+    --b-ink: #241000;
+    --b-shadow: 0 0 14px #ff5c0099, 0 5px 0 #7a2900, 0 8px 18px -8px #000;
+    --pad-bg: radial-gradient(circle at 50% 50%, #0d1a14 0 32%, transparent 33%), linear-gradient(180deg, #0c1512, #070c0a);
+    --pad-ink: #4fe08a;
+    --pill-bg: #0a1310;
+    --pill-ink: #4fe08a;
+  }
+  [data-skin="neon"] .dpad { border-color: #1d5c3b; box-shadow: 0 6px 0 #04120a, 0 0 16px #1d5c3b66 inset; }
+  [data-skin="arcade"] .dpad { border-color: #3a2857; }
+
+  /* 6. State import/export */
+  .io-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .menu-section {
+    border: 1px solid #1e2a3b;
+    border-radius: 14px;
+    padding: 10px;
+    display: grid;
+    gap: 8px;
+    background: #0e1520aa;
+  }
+  .menu-section > h3 {
+    margin: 0;
+    font-size: 10.5px;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 600;
+  }
+
   html.native body {
     padding-top: env(safe-area-inset-top);
     padding-bottom: env(safe-area-inset-bottom);
@@ -486,7 +735,7 @@
 <div class="shell" id="shell">
   <div id="loader"><span>Loading emulator</span><div class="bar2"></div></div>
 
-  <header class="bar">
+  <header class="bar" id="bar">
     <button class="icon-btn" id="open-menu" aria-label="Buka library ROM">☰</button>
     <div class="brand">
       <div class="logo">GN</div>
@@ -497,7 +746,14 @@
     </div>
     <button class="icon-btn" id="btn-mute" aria-label="Bisukan suara" aria-pressed="false">🔊</button>
     <button class="icon-btn" id="btn-pause" aria-label="Pause" aria-pressed="false">⏸</button>
+    <button class="icon-btn" id="btn-chrome" aria-label="Sembunyikan bilah atas" aria-pressed="false">⌃</button>
   </header>
+
+  <!-- Floats over the game instead of taking a row of its own. -->
+  <div class="chrome" id="chrome">
+    <button class="icon-btn" id="chip-menu" aria-label="Menu & library">☰</button>
+    <button class="icon-btn" id="chip-pause" aria-label="Pause" aria-pressed="false">⏸</button>
+  </div>
 
   <main class="stage" id="stage">
     <canvas id="screen" width="256" height="240" aria-label="Layar game"></canvas>
@@ -527,9 +783,13 @@
         disimpan di perangkat ini (IndexedDB) dan tidak pernah diunggah.
       </p>
 
-      <div class="slots">
+      <div class="slots" id="slots">
         <div class="slot">
           <header>Slot 1</header>
+          <div class="slot-preview" data-preview="1">
+            <span class="slot-thumb" data-thumb="1">—</span>
+            <span class="slot-when" data-when="1">Belum ada</span>
+          </div>
           <div class="row">
             <button data-action="save1">Simpan</button>
             <button data-action="load1">Muat</button>
@@ -537,11 +797,42 @@
         </div>
         <div class="slot">
           <header>Slot 2</header>
+          <div class="slot-preview" data-preview="2">
+            <span class="slot-thumb" data-thumb="2">—</span>
+            <span class="slot-when" data-when="2">Belum ada</span>
+          </div>
           <div class="row">
             <button data-action="save2">Simpan</button>
             <button data-action="load2">Muat</button>
           </div>
         </div>
+      </div>
+
+      <div class="menu-section">
+        <h3>Save state — file</h3>
+        <div class="io-row">
+          <button class="btn ghost" id="btn-export-state">⤴ Export state</button>
+          <label class="btn ghost" for="state-file">⤵ Import state
+            <input type="file" id="state-file" accept=".json,.pnesstate,application/json" class="sr">
+          </label>
+        </div>
+        <p class="hint" style="margin:0">File <code>.json</code> berisi kondisi game saat disimpan;
+        bisa dipindah ke HP lain. Muat ROM yang sama dulu, lalu import.</p>
+      </div>
+
+      <div class="menu-section">
+        <h3>Gaya tombol</h3>
+        <div class="skin-grid" id="skin-grid"></div>
+      </div>
+
+      <div class="menu-section">
+        <h3>Tata letak kontrol</h3>
+        <div class="io-row">
+          <button class="btn" id="btn-edit-layout">✥ Atur posisi tombol</button>
+          <button class="btn ghost" id="btn-reset-layout">⟲ Tata letak awal</button>
+        </div>
+        <p class="hint" style="margin:0">Geser D-pad dan tombol A/B ke posisi nyaman Anda.
+        Posisi disimpan terpisah untuk portrait dan landscape.</p>
       </div>
 
       <div class="menu-actions">
@@ -573,6 +864,16 @@
       </div>
     </div>
   </footer>
+</div>
+
+<div class="edit-hint" id="edit-hint">Geser D-pad / tombol ke posisi nyaman · ketuk <b>Selesai</b> bila sudah</div>
+<div class="editbar" id="editbar">
+  <div class="seg" role="group" aria-label="Layout yang diatur">
+    <button id="edit-portrait" aria-pressed="true">Portrait</button>
+    <button id="edit-landscape" aria-pressed="false">Landscape</button>
+  </div>
+  <button class="btn ghost" id="edit-reset">⟲ Awal</button>
+  <button class="btn primary" id="edit-done">Selesai</button>
 </div>
 
 <div id="toast" role="status" aria-live="polite"></div>
