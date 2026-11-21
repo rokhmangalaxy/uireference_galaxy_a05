@@ -51,8 +51,8 @@ release asset (tidak perlu login):
 
 - Paket `com.rokhmangalaxy.pocketnes` · minSdk 24 (Android 7+) · targetSdk 35
 - Ukuran 3.665.074 byte (± 3,5 MB) · **tanpa izin INTERNET**
-- Release terbaru: **apk-5** — sha256
-  `e6c9db6b00ff4425adf1a4a0a2d571a034bfe880a26fb258230f8135d7d9768f`
+- Release terbaru: **apk-7** — sha256
+  `0b76eafeef6d3050347cedde1a5d937c103be648f966107b7e6fc8fe7e9352e8`
   (dibuat & diverifikasi CI, termasuk `apksigner verify`)
 - Install: unduh di HP → izinkan *Install unknown apps* untuk browser → buka
   APK. Buka file `.nes` dari file manager → *Open with* → **Pocket NES**.
@@ -113,9 +113,9 @@ node test/smoke.mjs "roms/gun-nac-usa.nes"
 ```
 
 Build Android dikompilasi di GitHub Actions (JDK 17 + Android SDK 35).
-Release `apk-4` adalah build yang lolos: `assembleDebug` sukses, `apksigner
+Release `apk-7` adalah build yang lolos: `assembleDebug` sukses, `apksigner
 verify` lolos, dan APK memuat `assets/web/` (index.html, emulator.js, app.js,
-roms/test.nes).
+roms/test.nes) dengan paket `com.rokhmangalaxy.pocketnes`.
 
 ## 6. Fitur
 
