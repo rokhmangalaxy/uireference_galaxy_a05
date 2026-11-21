@@ -12,5 +12,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "GunNacOffline"
+rootProject.name = "PocketNES"
 include(":app")

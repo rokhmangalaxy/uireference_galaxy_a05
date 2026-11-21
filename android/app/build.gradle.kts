@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "cc.gunnac.offline"
+    namespace = "com.rokhmangalaxy.pocketnes"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "cc.gunnac.offline"
+        applicationId = "com.rokhmangalaxy.pocketnes"
         minSdk = 24
         targetSdk = 35
         versionCode = 1
@@ -44,6 +44,7 @@ android {
     buildFeatures {
         buildConfig = true
     }
+
 }
 
 dependencies {

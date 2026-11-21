@@ -18,7 +18,7 @@ const els = {
   libEmpty: $("#lib-empty"),
   importBtn: $("#import-rom"),
   playTest: $("#play-test"),
-  saveSlot: $("#save-slot"),
+  slots: $(".slots"),
   dpad: $("#dpad"),
   padA: $("#btn-a"),
   padB: $("#btn-b"),
@@ -215,10 +215,17 @@ function readFileAsBytes(file) {
 }
 
 async function importFile(file) {
-  if (!file) return;
-  const okExt = /\.(nes|fds|unf|unif)$/i.test(file.name);
+  if (!file) {
+    toast("Tidak ada file yang dipilih.", 4000);
+    return;
+  }
+  const okExt = /\.(nes|fds|unf|unif|zip)$/i.test(file.name);
   if (!okExt) {
-    toast("Please choose a .nes ROM file.", 5000);
+    toast(`"${file.name}" bukan file .nes. Pilih ROM NES Anda.`, 6000);
+    return;
+  }
+  if (file.size < 16) {
+    toast("File terlalu kecil / rusak.", 5000);
     return;
   }
   const bytes = await readFileAsBytes(file);
@@ -279,14 +286,19 @@ function bindControls() {
   const { player } = state;
   if (!player) return;
 
-  els.importBtn.addEventListener("click", () => els.file.click());
-  els.file.addEventListener("change", async (e) => {
-    await importFile(e.target.files?.[0]);
-    e.target.value = "";
+  // In the Kotlin shell, prefer the native picker: some WebView builds ignore
+  // <input type=file> entirely, which is why importing "did nothing" before.
+  els.importBtn.addEventListener("click", (e) => {
+    if (window.AndroidBridge?.openRomPicker) {
+      e.preventDefault();
+      window.AndroidBridge.openRomPicker();
+    }
   });
 
-  els.drop.addEventListener("change", async (e) => {
-    await importFile(e.target.files?.[0]);
+  els.file.addEventListener("change", async (e) => {
+    const file = e.target.files?.[0];
+    await importFile(file);
+    // Allow re-importing the same file name later.
     e.target.value = "";
   });
 
@@ -310,18 +322,18 @@ function bindControls() {
   });
 
   // Quick save / load.
-  els.saveSlot.addEventListener("click", async (e) => {
+  els.slots.addEventListener("click", async (e) => {
     const action = e.target.closest("[data-action]")?.dataset.action;
     if (!action || !state.romKey) {
       toast("Load a ROM first.");
       return;
     }
-    if (action === "save" || action === "save2") {
+    if (action === "save1" || action === "save2") {
       const json = player.saveState();
       await db.put(DB_STORE, `state:${state.romKey}:${action}`, json);
       db.put(DB_STORE, `state:${state.romKey}:thumb`, player.screenshot()).catch(() => {});
       toast("State saved");
-    } else if (action === "load" || action === "load2") {
+    } else if (action === "load1" || action === "load2") {
       const key = `state:${state.romKey}:${action.replace("load", "save")}`;
       const json = await db.get(DB_STORE, key);
       if (!json) {

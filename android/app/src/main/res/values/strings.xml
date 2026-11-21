@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Gun Nac Offline</string>
-    <string name="not_a_rom">File itu bukan ROM .nes</string>
+    <string name="app_name">Pocket NES</string>
+    <string name="not_a_rom">%1$s bukan ROM .nes/.zip</string>
     <string name="rom_too_big">ROM lebih dari 8 MB — tidak didukung</string>
-    <string name="rom_unreadable">Tidak bisa membaca file ROM</string>
+    <string name="rom_unreadable">Tidak bisa membaca file ROM (coba pilih lewat Import ROM)</string>
+    <string name="no_file_picker">Tidak ada aplikasi pemilih file di perangkat ini</string>
 </resources>

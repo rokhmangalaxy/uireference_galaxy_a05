@@ -4,6 +4,12 @@
     <!-- No INTERNET permission on purpose: the player cannot phone home. -->
     <uses-permission android:name="android.permission.VIBRATE" />
 
+    <!-- Only needed on Android 12L and below to read a ROM picked from shared
+         storage. Android 13+ uses the system photo/document pickers instead. -->
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+
     <application
         android:allowBackup="true"
         android:hardwareAccelerated="true"
@@ -24,13 +30,15 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
-            <!-- Allow opening a .nes file from a file manager / share sheet. -->
+            <!-- Allow opening a .nes (or .zip containing one) from a file
+                 manager or the share sheet. -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="content" />
                 <data android:mimeType="application/x-nes-rom" />
+                <data android:mimeType="application/x-unif-rom" />
                 <data android:mimeType="application/octet-stream" />
             </intent-filter>
         </activity>

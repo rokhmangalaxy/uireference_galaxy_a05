@@ -141,7 +141,7 @@ jobs:
             --title "Gun Nac Offline APK #${{ github.run_number }}" \
             --notes "Debug APK built from \`${{ github.sha }}\`.
 
-          * Paket: \`cc.gunnac.offline\` — minSdk 24, targetSdk 35, no INTERNET permission
+          * Paket: \`com.rokhmangalaxy.pocketnes\` — minSdk 24, targetSdk 35, no INTERNET permission
           * sha256: \`${{ env.APK_SHA }}\`
           * Install: unduh, izinkan *install from unknown sources*, lalu buka.
           * Player TIDAK menyertakan game. Impor ROM \`.nes\` milik Anda sendiri."

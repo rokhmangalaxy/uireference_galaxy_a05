@@ -201,6 +201,9 @@
     border-color: #ffe28a;
     box-shadow: 0 3px 0 #8a6700;
   }
+  label.btn { cursor: pointer; }
+  .hint { margin: 0; font-size: 11.5px; color: var(--muted); line-height: 1.5; }
+  .hint code { color: var(--accent-2); }
   .btn.ghost { background: transparent; border-color: #223146; color: var(--muted); box-shadow: none; }
   .btn.danger { color: var(--danger); border-color: #4a2530; background: #1a1216; box-shadow: none; }
 
@@ -448,7 +451,7 @@
       <div class="logo">GN</div>
       <div>
         <h1 id="game-title">Gun Nac</h1>
-        <small>Offline NES Player · ROM lokal Anda</small>
+        <small>Pocket NES · offline · ROM lokal Anda</small>
       </div>
     </div>
     <button class="icon-btn" id="btn-mute" aria-label="Bisukan suara" aria-pressed="false">🔊</button>
@@ -470,11 +473,11 @@
       </div>
 
       <div class="menu-actions">
-        <button class="btn primary" id="import-rom">＋ Import ROM</button>
+        <label class="btn primary" for="file" id="import-rom">
+          ＋ Import ROM <input type="file" id="file" accept=".nes,.zip,.fds,.unf,.unif,application/octet-stream,application/zip" class="sr">
+        </label>
         <button class="btn" id="play-test">▶ Test ROM</button>
       </div>
-      <input type="file" id="file" accept=".nes,.fds,.unf,.unif" class="sr">
-      <input type="file" id="drop" class="sr">
 
       <ul class="lib-list" id="library-list"></ul>
       <p class="empty" id="lib-empty" hidden>
@@ -487,8 +490,8 @@
         <div class="slot">
           <header>Slot 1</header>
           <div class="row">
-            <button data-action="save">Simpan</button>
-            <button data-action="load">Muat</button>
+            <button data-action="save1">Simpan</button>
+            <button data-action="load1">Muat</button>
           </div>
         </div>
         <div class="slot">
@@ -509,7 +512,10 @@
         Aplikasi ini tidak menyertakan game apa pun. Gun Nac © Compile/ASCII —
         gunakan hanya ROM yang Anda beli dan dump sendiri.
       </p>
-      <div id="save-slot" hidden></div>
+      <p class="hint" id="hint">
+        Di APK: tombol <strong>Import ROM</strong> membuka pemilih file Android.
+        Bisa juga membuka <code>.nes</code> dari file manager → <em>Open with</em>.
+      </p>
     </section>
   </main>
 

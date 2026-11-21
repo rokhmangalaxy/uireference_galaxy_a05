@@ -71,6 +71,37 @@ if (!api || typeof api.createPlayer !== "function") {
   process.exit(1);
 }
 
+// ------------------------------------------------------------- DOM checks --
+// Regression guard for the "Import ROM does nothing in the APK" bug: the file
+// input must be a real, visible-in-DOM element that a click event reaches, and
+// the save-state buttons must live inside the .slots container that the app
+// delegates clicks to.
+
+const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+const checks = [
+  [/<label[^>]+for="file"[^>]*>/, "label[for=file] trigger for the picker"],
+  [/<input type="file" id="file"/, "#file input exists"],
+  [/accept="[^"]*\.nes/, "accept includes .nes"],
+  [/class="sr"[^>]*>/, "file input stays in the DOM (sr, not removed)"],
+  [/<div class="slots">[\s\S]*data-action="save1"[\s\S]*data-action="load1"/, "slot 1 buttons inside .slots"],
+  [/data-action="save2"[\s\S]*data-action="load2"/, "slot 2 buttons present"],
+];
+let domOk = true;
+for (const [re, label] of checks) {
+  const pass = re.test(html);
+  console.log(`${pass ? "ok  " : "FAIL"} ${label}`);
+  if (!pass) domOk = false;
+}
+
+// App JS must attach the slot listener to the container, not a removed node.
+const appJs = readFileSync(new URL("../src/app.js", import.meta.url), "utf8");
+const appOk =
+  appJs.includes('slots: $(".slots")') &&
+  appJs.includes("els.slots.addEventListener") &&
+  !appJs.includes("els.saveSlot");
+console.log(`${appOk ? "ok  " : "FAIL"} slot clicks delegated to .slots`);
+if (!appOk) domOk = false;
+
 // ---------------------------------------------------------------- run it --
 const romPath = process.argv[2];
 const rom = romPath
@@ -137,6 +168,6 @@ player.reset();
 player.stop();
 
 console.log(`framesPainted=${putImageDataCalls.length} nonBlackPixels=${nonBlack}`);
-const ok = putImageDataCalls.length > 0 && nonBlack > 50;
+const ok = domOk && putImageDataCalls.length > 0 && nonBlack > 50;
 console.log(ok ? "PASS: built bundle renders frames" : "FAIL: blank canvas");
 process.exit(ok ? 0 : 1);
