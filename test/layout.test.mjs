@@ -20,6 +20,7 @@
  *   node test/layout.test.mjs
  */
 import { readFileSync } from "node:fs";
+import { JSDOM } from "jsdom";
 import { computeScreenSize } from "../src/emulator.js";
 
 let failures = 0;
@@ -85,7 +86,10 @@ const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
 
 check("html clips sideways overflow", /html\s*\{[^}]*overflow-x:\s*hidden/.test(html));
 check("body clips sideways overflow", /body\s*\{[^}]*overflow-x:\s*hidden/s.test(html));
-check("stage rows use minmax(0,1fr)", /grid-template-rows:\s*auto\s+minmax\(0,\s*1fr\)\s+auto/.test(html));
+check(
+  "stage is the only flexible row (no header row)",
+  /grid-template-rows:\s*minmax\(0,\s*1fr\)\s+auto/.test(html),
+);
 check("canvas is capped by its container", /#screen\s*\{[^}]*max-width:\s*100%/s.test(html));
 check("canvas is capped vertically", /#screen\s*\{[^}]*max-height:\s*100%/s.test(html));
 
@@ -116,19 +120,62 @@ check(
 );
 
 // -------------------------------------------------------- v11 UI guards ----
-// The header collapses while playing so the game gets the full screen.
+// There is no header bar at all any more: every global control lives in the
+// floating chip, so the game owns the whole viewport height.
 check(
-  "playing state collapses the header into a floating chip",
-  /\.shell\.playing \.bar\s*\{[^}]*position:\s*fixed/s.test(html) &&
-    /\.shell\.playing\s*\{[^}]*grid-template-rows:\s*minmax\(0,\s*1fr\)\s+auto/s.test(html),
+  "no top-bar header is rendered",
+  !/<header class="bar"/.test(html) && !html.includes('id="bar"'),
+  "a top bar would steal a row from the game",
 );
-check("a collapse control exists", /id="btn-chrome"/.test(html));
-check("floating chip exists", /class="chrome" id="chrome"/.test(html) && /id="chip-menu"/.test(html));
+check("floating chip exists", /class="chrome" id="chrome"/.test(html));
+check(
+  "chip holds menu, pause, save-state and mute",
+  ["chip-menu", "chip-pause", "chip-state", "chip-mute"].every((id) => html.includes(`id="${id}"`)),
+);
+check(
+  "the chip does not reserve layout space",
+  /\.chrome\s*\{[^}]*position:\s*fixed/s.test(html),
+);
+check(
+  "chip fades while playing instead of covering the picture",
+  /\.shell\.playing:not\(\.chrome-open\) \.chrome\s*\{[^}]*opacity/s.test(html),
+);
+
+// Quick save-state sheet: reachable in one tap, without the full menu.
+check("quick save-state sheet exists", /class="qsheet" id="qsheet"/.test(html));
+check("quick sheet lists both slots", /id="qsheet-list"/.test(html));
+check("quick sheet is opened by the chip", /id="chip-state"/.test(html));
+check(
+  "quick sheet has import and export",
+  /id="qsheet-import"/.test(html) && /id="qsheet-export"/.test(html),
+);
 
 // Drag-to-place controls must not let a pad be dragged off screen: the JS
 // clamps to the viewport, and edit mode must visually mark the pads.
 check("edit mode marks the draggable pads", /\.shell\.editing \.dpad[\s\S]{0,200}outline:/.test(html));
 check("edit bar exists", /class="editbar" id="editbar"/.test(html));
+// Regression: the bar used to be a sibling of #shell, so `.shell.editing .editbar`
+// never matched and the "Selesai" button was invisible -> no way to exit.
+// Parse the document so this cannot be fooled by marker order.
+const parsed = new JSDOM(html).window.document;
+check(
+  "edit bar lives INSIDE .shell (otherwise it cannot be shown)",
+  !!parsed.querySelector("#shell #editbar"),
+  "CSS selector .shell.editing .editbar requires this nesting",
+);
+check(
+  "edit hint lives inside .shell too",
+  !!parsed.querySelector("#shell #edit-hint"),
+);
+check(
+  "the quick save sheet lives inside .shell",
+  !!parsed.querySelector("#shell #qsheet"),
+);
+check(
+  "edit mode has an explicit exit button",
+  /id="edit-done"[^>]*>[^<]*Selesai/.test(html),
+);
+check("edit mode has a cancel button", /id="edit-cancel"/.test(html));
 check("edit mode has a portrait/landscape switch", /id="edit-portrait"/.test(html) && /id="edit-landscape"/.test(html));
 
 // Button skins must be variable-driven so a skin is a token change, not a fork.

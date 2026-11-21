@@ -24,9 +24,11 @@ const els = {
   padB: $("#btn-b"),
   start: $("#btn-start"),
   select: $("#btn-select"),
-  mute: $("#btn-mute"),
-  freeze: $("#btn-pause"),
+  mute: $("#chip-mute"),
+  freeze: $("#chip-pause"),
   shot: $("#btn-shot"),
+  qsheet: $("#qsheet"),
+  qsheetList: $("#qsheet-list"),
 };
 
 const state = {
@@ -309,6 +311,112 @@ async function saveSlot(n) {
   toast(`State + screenshot tersimpan di slot ${n}`);
 }
 
+// ------------------------------------------------ quick save-state sheet ----
+/**
+ * The 💾 chip in the corner opens a mini list of both save slots without
+ * going through the full menu: screenshot, time, and Simpan/Muat per row.
+ * It is deliberately small and semi-transparent-transparent so it can be used
+ * mid-game without losing sight of the action.
+ */
+async function renderQuickSheet() {
+  const list = els.qsheetList;
+  if (!list) return;
+  if (!state.romKey) {
+    list.innerHTML = `<div class="qrow empty"><p>Muat ROM dulu untuk menyimpan state.</p></div>`;
+    return;
+  }
+  const rows = [];
+  for (const n of [1, 2]) {
+    const meta = await db.get(DB_STORE, `state:${state.romKey}:save${n}:meta`);
+    const thumb = await db.get(DB_STORE, `state:${state.romKey}:save${n}:thumb`);
+    rows.push(`
+      <div class="qrow" data-slot="${n}">
+        <span class="qthumb">${thumb ? `<img alt="" src="${thumb}">` : "—"}</span>
+        <span class="qwhen">
+          <b>Slot ${n}</b>
+          <span>${meta ? formatWhen(meta.at) : "kosong"}</span>
+        </span>
+        <button class="qsave" data-q="save${n}">Simpan</button>
+        <button data-q="load${n}" ${meta ? "" : "disabled"}>Muat</button>
+      </div>`);
+  }
+  list.innerHTML = rows.join("");
+}
+
+function quickSheetOpen() {
+  return els.shell.classList.contains("qsheet-open");
+}
+
+async function openQuickSheet() {
+  els.shell.classList.remove("menu-open", "editing");
+  els.shell.classList.add("qsheet-open");
+  els.shell.classList.toggle("chrome-open", true);
+  await renderQuickSheet();
+  refitScreen();
+}
+
+function closeQuickSheet() {
+  if (!els.shell.classList.contains("qsheet-open")) return;
+  els.shell.classList.remove("qsheet-open");
+  els.shell.classList.remove("chrome-open");
+}
+
+async function bindQuickSheet() {
+  $("#chip-state")?.addEventListener("click", () => {
+    if (quickSheetOpen()) closeQuickSheet();
+    else openQuickSheet();
+  });
+  $("#qsheet-close")?.addEventListener("click", closeQuickSheet);
+
+  els.qsheetList?.addEventListener("click", async (e) => {
+    const action = e.target.closest("[data-q]")?.dataset.q;
+    if (!action) return;
+    if (action.startsWith("save")) {
+      await saveSlot(action.replace("save", ""));
+      await renderQuickSheet();
+    } else {
+      const key = `state:${state.romKey}:${action.replace("load", "save")}`;
+      const json = await db.get(DB_STORE, key);
+      if (!json) return;
+      try {
+        state.player.loadState(json);
+        state.paused = false;
+        state.player.resume();
+        syncPauseButtons();
+        prefs.set("lastSlot", `save${action.replace("load", "")}`);
+        toast(`State slot ${action.replace("load", "")} dimuat`);
+        closeQuickSheet();
+      } catch (err) {
+        toast(`State tidak bisa dimuat: ${err.message}`);
+      }
+    }
+  });
+
+  // Export / import straight from the quick sheet too.
+  $("#qsheet-export")?.addEventListener("click", exportState);
+  $("#qsheet-import")?.addEventListener("change", async (e) => {
+    await importState(e.target.files?.[0]);
+    e.target.value = "";
+    closeQuickSheet();
+  });
+
+  // Tapping the game area closes the sheet; it must never trap the pointer.
+  els.stage?.addEventListener("pointerdown", (e) => {
+    if (!quickSheetOpen()) return;
+    if (e.target.closest("#qsheet") || e.target.closest(".chrome")) return;
+    closeQuickSheet();
+  });
+
+  // Keyboard shortcut for desktop testing / Chromebooks: S toggles the sheet.
+  document.addEventListener("keydown", (e) => {
+    if (e.target.matches("input, textarea")) return;
+    if (e.code === "KeyS" && !e.ctrlKey && !e.metaKey && state.romKey) {
+      if (quickSheetOpen()) closeQuickSheet();
+      else openQuickSheet();
+    }
+  });
+}
+
 // --------------------------------------------------- state import/export ----
 function safeBase(romName) {
   return String(romName || "game")
@@ -466,7 +574,14 @@ function saveLayout(orientation, map) {
   prefs.set(LAYOUT_KEY, all);
 }
 
+let layoutBeforeEdit = null;
+
 function setEditing(on) {
+  if (on) {
+    layoutBeforeEdit = JSON.parse(JSON.stringify(prefs.get(LAYOUT_KEY, {}) || {}));
+  } else {
+    layoutBeforeEdit = null;
+  }
   els.shell.classList.toggle("editing", on);
   document.body.classList.toggle("editing", on);
   if (!on) {
@@ -542,7 +657,17 @@ function bindEditLayout() {
     els.shell.classList.remove("menu-open");
     setEditing(true);
   });
-  $("#edit-done")?.addEventListener("click", () => setEditing(false));
+  $("#edit-done")?.addEventListener("click", () => {
+    setEditing(false);
+    toast("Posisi tombol disimpan", 1800);
+  });
+  // Batal: restore exactly what was active before edit mode started.
+  $("#edit-cancel")?.addEventListener("click", () => {
+    if (layoutBeforeEdit) prefs.set(LAYOUT_KEY, layoutBeforeEdit);
+    setEditing(false);
+    applyLayout();
+    toast("Perubahan posisi dibatalkan", 2000);
+  });
   $("#edit-reset")?.addEventListener("click", () => {
     const o = currentOrientation();
     saveLayout(o, { dpad: { dx: 0, dy: 0 }, right: { dx: 0, dy: 0 } });
@@ -577,7 +702,7 @@ function bindEditLayout() {
 // --------------------------------------------------------------- stage ----
 function showStage(playing) {
   els.shell.classList.toggle("playing", playing);
-  els.title.textContent = playing ? state.romName || "GAME" : "GUN NAC";
+  if (els.title) els.title.textContent = playing ? state.romName || "GAME" : "Gun Nac";
   // Entering/leaving "playing" changes the stage height (the idle bar is
   // hidden), so the canvas has to be re-fitted on the next frame.
   refitScreen();
@@ -628,6 +753,7 @@ async function loadRom(bytes, name, opts = {}) {
     await player.start();
     state.paused = false;
     showStage(true);
+    closeQuickSheet();
     syncPauseButtons();
     els.shell.classList.remove("menu-open");
     applyLayout();
@@ -754,24 +880,14 @@ function bindControls() {
     e.target.value = "";
   });
 
-  $("#open-menu").addEventListener("click", () => {
+  const openMenu = () => {
     els.shell.classList.add("menu-open");
+    closeQuickSheet();
     renderSlotPreviews();
     renderLibrary();
-  });
-
-  // Collapse the top bar while playing: the floating chip then owns the corner
-  // and the game gets the whole screen.
-  const setChrome = (open) => {
-    els.shell.classList.toggle("chrome-open", open);
-    const btn = $("#btn-chrome");
-    btn?.setAttribute("aria-pressed", String(open));
-    if (btn) btn.textContent = open ? "⌃" : "⌄";
-    refitScreen();
   };
-  $("#btn-chrome")?.addEventListener("click", () => {
-    setChrome(!els.shell.classList.contains("chrome-open"));
-  });
+  $("#chip-menu")?.addEventListener("click", openMenu);
+
   $("#close-menu").addEventListener("click", () => els.shell.classList.remove("menu-open"));
 
   // Drag & drop onto the window.
@@ -827,16 +943,17 @@ function bindControls() {
 
   buildSkinGallery();
   bindEditLayout();
+  bindQuickSheet();
 
   // Top bar buttons.
-  els.mute.addEventListener("click", () => {
+  els.mute?.addEventListener("click", () => {
     state.muted = !state.muted;
     player.setMuted(state.muted);
     els.mute.textContent = state.muted ? "🔇" : "🔊";
     els.mute.setAttribute("aria-pressed", String(state.muted));
   });
 
-  els.freeze.addEventListener("click", () => {
+  els.freeze?.addEventListener("click", () => {
     if (!state.romKey) {
       toast("Muat ROM dulu.");
       return;
@@ -867,7 +984,7 @@ function bindControls() {
     player.reset();
     player.resume();
     state.paused = false;
-    els.freeze.textContent = "⏸";
+    syncPauseButtons();
     toast("Reset");
   });
 
@@ -946,7 +1063,22 @@ function bindControls() {
 
   // Keyboard hints for desktop players.
   document.addEventListener("keydown", (e) => {
-    if (e.code === "Escape" && document.fullscreenElement) document.exitFullscreen();
+    if (e.code !== "Escape") return;
+    // Escape is the universal "get me out of here": it leaves edit mode first,
+    // then closes the quick sheet/menu, and only then exits fullscreen.
+    if (els.shell.classList.contains("editing")) {
+      $("#edit-cancel")?.click();
+      return;
+    }
+    if (quickSheetOpen()) {
+      closeQuickSheet();
+      return;
+    }
+    if (els.shell.classList.contains("menu-open")) {
+      els.shell.classList.remove("menu-open");
+      return;
+    }
+    if (document.fullscreenElement) document.exitFullscreen();
   });
 }
 

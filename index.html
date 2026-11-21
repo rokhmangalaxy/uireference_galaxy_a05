@@ -39,11 +39,13 @@
   .shell {
     min-height: 100dvh;
     display: grid;
+    padding-top: max(8px, env(safe-area-inset-top));
     /* minmax(0, 1fr) instead of the implicit `auto` column: an auto track is
        sized from its widest child's min-content, so an oversized canvas used
        to stretch the whole page past the screen width. */
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto minmax(0, 1fr) auto;
+    /* No header row: the stage is the flexible row, the pads are the last one. */
+    grid-template-rows: minmax(0, 1fr) auto;
     padding: max(10px, env(safe-area-inset-top)) 12px calc(12px + var(--safe-b));
     gap: 10px;
     /* A canvas that is even one pixel wider than the column makes the whole
@@ -52,48 +54,7 @@
     padding-inline: max(12px, env(safe-area-inset-left)) max(12px, env(safe-area-inset-right));
   }
 
-  /* ---------------------------------------------------------- top bar -- */
-  .bar {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    min-height: 48px;
-  }
-  .brand {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    min-width: 0;
-    flex: 1;
-  }
-  .logo {
-    width: 38px; height: 38px;
-    border-radius: 11px;
-    background: linear-gradient(145deg, #2b3d55, #131b26);
-    border: 1px solid #2c3d54;
-    display: grid; place-items: center;
-    font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
-    font-weight: 800;
-    color: var(--accent);
-    font-size: 13px;
-    letter-spacing: .5px;
-    box-shadow: 0 2px 0 #05080d;
-  }
-  .brand h1 {
-    margin: 0;
-    font-size: 15px;
-    letter-spacing: .12em;
-    text-transform: uppercase;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .brand small {
-    display: block;
-    color: var(--muted);
-    font-size: 11px;
-    letter-spacing: .08em;
-  }
+  /* ------------------------------------------------------------- icons -- */
   .icon-btn {
     flex: none;
     width: 44px; height: 44px;
@@ -443,11 +404,11 @@
      is what used to push B/A into the centre of the screen. */
   @media (orientation: landscape) and (max-height: 620px) {
     .shell {
-      grid-template-rows: auto minmax(0, 1fr);
+      /* landscape: pads float, so the stage is the only grid row that matters */
+      grid-template-rows: minmax(0, 1fr);
       padding-left: max(10px, env(safe-area-inset-left));
       padding-right: max(10px, env(safe-area-inset-right));
     }
-    .bar { min-height: 38px; }
     .stage {
       border-radius: 14px;
       /* the pads float over the bottom edge; keep the picture clear of them */
@@ -497,22 +458,13 @@
     background: #0f1620e6;
     backdrop-filter: blur(8px);
   }
-  .shell.playing:not(.chrome-open) .chrome { transform: translateY(-6px); opacity: .28; }
-  .shell.playing:not(.chrome-open) .chrome:active { opacity: .9; }
-  .shell.playing .bar {
-    position: fixed; inset: 0 0 auto 0; z-index: 22;
-    padding: max(8px, env(safe-area-inset-top)) 12px 8px;
-    background: linear-gradient(#0b0f14f5, #0b0f14e0);
-    backdrop-filter: blur(12px);
-    transform: translateY(-110%);
-    transition: transform .22s cubic-bezier(.2,.8,.2,1);
-  }
-  .shell.playing.chrome-open .bar { transform: none; }
-  .shell.playing .brand small { display: none; }
-  .shell.playing .brand h1 { font-size: 13px; }
-  /* with no header row, the stage takes the full height */
-  .shell.playing { grid-template-rows: minmax(0, 1fr) auto; }
-  .shell.playing .stage { grid-row: 1; }
+  /* The chip fades back while a game runs so it does not sit on the picture,
+     but a tap anywhere near it brings it back; it never reserves layout space. */
+  .shell.playing:not(.chrome-open) .chrome { opacity: .34; }
+  .shell.playing:not(.chrome-open) .chrome:active,
+  .shell.playing:not(.chrome-open) .chrome:focus-within { opacity: 1; }
+  .chrome .icon-btn[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+  /* There is no header row at all: the stage is always the flexible row. */
 
   /* 2. Custom "ROM was imported before" affordance */
   .lib-resume { color: var(--accent-2); font-size: 7px; margin-left: 4px; vertical-align: middle; }
@@ -584,7 +536,11 @@
     max-width: min(94vw, 560px);
     flex-wrap: wrap;
     justify-content: center;
+    z-index: 40;
   }
+  .shell.editing .editbar .btn { padding: 10px 14px; }
+  #edit-done { order: 3; }
+  #edit-cancel { order: 4; }
   .shell.editing .editbar { display: flex; }
   .shell.editing .controls { opacity: .92; }
   .edit-hint {
@@ -705,6 +661,86 @@
   [data-skin="neon"] .dpad { border-color: #1d5c3b; box-shadow: 0 6px 0 #04120a, 0 0 16px #1d5c3b66 inset; }
   [data-skin="arcade"] .dpad { border-color: #3a2857; }
 
+
+  /* ------------------------------------------- quick save-state sheet ---- */
+  .qsheet {
+    position: absolute;
+    top: 52px;
+    left: 10px;
+    width: min(86vw, 300px);
+    max-height: min(58dvh, 400px);
+    display: none;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px;
+    border-radius: 16px;
+    background: #0b1220f5;
+    border: 1px solid #2a3a52;
+    box-shadow: 0 26px 60px -22px #000;
+    backdrop-filter: blur(10px);
+    z-index: 26;
+    overflow: hidden;
+  }
+  .shell.qsheet-open .qsheet { display: flex; }
+  .qsheet-head { display: flex; align-items: center; gap: 8px; }
+  .qsheet-head strong {
+    flex: 1;
+    font-size: 10.5px;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .qsheet-head .icon-btn { width: 32px; height: 32px; border-radius: 10px; font-size: 13px; }
+  .qsheet-list { display: grid; gap: 6px; overflow: auto; }
+  .qrow {
+    display: grid;
+    grid-template-columns: 46px minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 6px;
+    padding: 5px;
+    border: 1px solid #1e2a3b;
+    border-radius: 11px;
+    background: #0e1520;
+  }
+  .qrow .qthumb {
+    width: 46px; height: 43px;
+    border-radius: 7px;
+    background: #06090d;
+    border: 1px solid #223146;
+    display: grid; place-items: center;
+    font-size: 9px;
+    color: #3c4d66;
+    overflow: hidden;
+    image-rendering: pixelated;
+  }
+  .qrow .qthumb img { width: 100%; height: 100%; object-fit: cover; }
+  .qrow .qwhen { min-width: 0; font-size: 10px; color: var(--muted); line-height: 1.25; }
+  .qrow .qwhen b { display: block; color: var(--ink); font-size: 11px; font-weight: 650; }
+  .qrow .qwhen span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .qrow button {
+    border-radius: 8px;
+    border: 1px solid #2a3a52;
+    background: var(--panel-2);
+    padding: 7px 8px;
+    font-size: 11px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .qrow button.qsave { border-color: #4a3a10; background: #241c08; color: var(--accent); }
+  .qrow button:disabled { opacity: .4; cursor: not-allowed; }
+  .qrow.empty { grid-template-columns: 1fr; }
+  .qrow.empty p { margin: 0; font-size: 11px; color: var(--muted); text-align: center; padding: 8px 2px; }
+  .qsheet-foot { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .qsheet-foot .btn { padding: 9px 10px; font-size: 12px; }
+  #qsheet-import { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+
+  /* Edit mode: the exit controls are now inside .shell, so they are visible.
+     Big, always reachable, and they do not overlap the pads. */
+  .shell.editing .editbar { display: flex; }
+  .shell.editing .chrome,
+  .shell.editing .qsheet { display: none; }
+  .shell.editing .toast { display: none; }
+
   /* 6. State import/export */
   .io-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   .menu-section {
@@ -735,29 +771,33 @@
 <div class="shell" id="shell">
   <div id="loader"><span>Loading emulator</span><div class="bar2"></div></div>
 
-  <header class="bar" id="bar">
-    <button class="icon-btn" id="open-menu" aria-label="Buka library ROM">☰</button>
-    <div class="brand">
-      <div class="logo">GN</div>
-      <div>
-        <h1 id="game-title">Gun Nac</h1>
-        <small>Pocket NES · offline · ROM lokal Anda</small>
-      </div>
-    </div>
-    <button class="icon-btn" id="btn-mute" aria-label="Bisukan suara" aria-pressed="false">🔊</button>
-    <button class="icon-btn" id="btn-pause" aria-label="Pause" aria-pressed="false">⏸</button>
-    <button class="icon-btn" id="btn-chrome" aria-label="Sembunyikan bilah atas" aria-pressed="false">⌃</button>
-  </header>
-
-  <!-- Floats over the game instead of taking a row of its own. -->
+  <!-- No header bar: every control lives in this floating chip so the game gets
+       the whole screen. It overlays the top-left corner and never takes a row. -->
   <div class="chrome" id="chrome">
     <button class="icon-btn" id="chip-menu" aria-label="Menu & library">☰</button>
     <button class="icon-btn" id="chip-pause" aria-label="Pause" aria-pressed="false">⏸</button>
+    <button class="icon-btn" id="chip-state" aria-label="Save state cepat">💾</button>
+    <button class="icon-btn" id="chip-mute" aria-label="Bisukan suara" aria-pressed="false">🔊</button>
+  </div>
+
+  <!-- Mini save-state list: opens over the game, no menu needed. -->
+  <div class="qsheet" id="qsheet" role="dialog" aria-label="Save state cepat" aria-modal="false">
+    <div class="qsheet-head">
+      <strong>Save state</strong>
+      <button class="icon-btn" id="qsheet-close" aria-label="Tutup">✕</button>
+    </div>
+    <div class="qsheet-list" id="qsheet-list"></div>
+    <div class="qsheet-foot">
+      <label class="btn ghost" for="qsheet-import">⤵ Import
+        <input type="file" id="qsheet-import" accept=".json,.pnesstate,application/json">
+      </label>
+      <button class="btn ghost" id="qsheet-export">⤴ Export</button>
+    </div>
   </div>
 
   <main class="stage" id="stage">
     <canvas id="screen" width="256" height="240" aria-label="Layar game"></canvas>
-    <div class="hud"><span id="fps">—</span> <b>FPS</b></div>
+    <div class="hud"><b id="game-title">Gun Nac</b> · <span id="fps">—</span> fps</div>
     <div class="idle">
       <span>Tekan ☰ untuk memilih file <code>.nes</code> milik sendiri.</span>
       <button class="icon-btn" id="btn-full" aria-label="Layar penuh">⛶</button>
@@ -864,16 +904,16 @@
       </div>
     </div>
   </footer>
-</div>
-
-<div class="edit-hint" id="edit-hint">Geser D-pad / tombol ke posisi nyaman · ketuk <b>Selesai</b> bila sudah</div>
-<div class="editbar" id="editbar">
-  <div class="seg" role="group" aria-label="Layout yang diatur">
-    <button id="edit-portrait" aria-pressed="true">Portrait</button>
-    <button id="edit-landscape" aria-pressed="false">Landscape</button>
+  <div class="edit-hint" id="edit-hint">Geser D-pad / tombol ke posisi nyaman · tekan <b>Selesai</b></div>
+  <div class="editbar" id="editbar">
+    <div class="seg" role="group" aria-label="Layout yang diatur">
+      <button id="edit-portrait" aria-pressed="true">Portrait</button>
+      <button id="edit-landscape" aria-pressed="false">Landscape</button>
+    </div>
+    <button class="btn ghost" id="edit-reset">⟲ Awal</button>
+    <button class="btn primary" id="edit-done">✓ Selesai</button>
+    <button class="btn" id="edit-cancel">✕ Batal</button>
   </div>
-  <button class="btn ghost" id="edit-reset">⟲ Awal</button>
-  <button class="btn primary" id="edit-done">Selesai</button>
 </div>
 
 <div id="toast" role="status" aria-live="polite"></div>

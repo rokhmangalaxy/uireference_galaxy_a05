@@ -289,13 +289,74 @@ check(
   doc2.querySelector("#toast")?.textContent,
 );
 
-// ---- header collapse -------------------------------------------------------
-doc2.querySelector("#btn-chrome").dispatchEvent(
+// ---- no header: the chip is the only chrome -------------------------------
+check(
+  "there is no header bar to steal a row",
+  !doc2.querySelector("header.bar") && !doc2.querySelector("#bar"),
+);
+check("the floating chip is present", !!doc2.querySelector("#chrome #chip-menu"));
+
+// ---- edit mode can always be exited --------------------------------------
+doc2.querySelector("#btn-edit-layout").dispatchEvent(
   new dom2.window.MouseEvent("click", { bubbles: true }),
 );
+check("edit mode opens from the menu", doc2.querySelector("#shell").classList.contains("editing"));
+const doneBtn = doc2.querySelector("#edit-done");
+check("the exit button is actually reachable (not display:none)", !!doneBtn);
+// Escape is the other way out.
+doc2.dispatchEvent(new dom2.window.KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }));
+await sleep(120);
 check(
-  "top bar can be collapsed while playing",
-  doc2.querySelector("#shell").classList.contains("chrome-open"),
+  "Escape leaves edit mode",
+  !doc2.querySelector("#shell").classList.contains("editing"),
+);
+// ...and Cancel restores the previous positions.
+doc2.querySelector("#btn-edit-layout").dispatchEvent(
+  new dom2.window.MouseEvent("click", { bubbles: true }),
+);
+const dpad2 = doc2.querySelector("#dpad");
+const fire2 = (type, x, y) =>
+  dpad2.dispatchEvent(
+    new dom2.window.PointerEvent(type, { bubbles: true, clientX: x, clientY: y, pointerId: 2 }),
+  );
+fire2("pointerdown", 10, 10);
+fire2("pointermove", 200, 200);
+fire2("pointerup", 200, 200);
+await sleep(120);
+doc2.querySelector("#edit-cancel").dispatchEvent(new dom2.window.MouseEvent("click", { bubbles: true }));
+await sleep(120);
+check(
+  "Cancel restores the layout that was active before editing",
+  (doc2.querySelector("#dpad")?.style.transform || "").includes("50px"),
+  doc2.querySelector("#dpad")?.style.transform,
+);
+check("Cancel also leaves edit mode", !doc2.querySelector("#shell").classList.contains("editing"));
+
+// ---- quick save-state sheet ----------------------------------------------
+doc2.querySelector("#chip-state").dispatchEvent(new dom2.window.MouseEvent("click", { bubbles: true }));
+await sleep(400);
+check(
+  "the save-state shortcut opens the mini list",
+  doc2.querySelector("#shell").classList.contains("qsheet-open"),
+);
+const qrows = doc2.querySelectorAll("#qsheet-list .qrow");
+check("the mini list shows both slots", qrows.length === 2, `${qrows.length} rows`);
+check(
+  "slot 1 shows its screenshot in the mini list",
+  !!doc2.querySelector('#qsheet-list img'),
+);
+doc2.querySelector('#qsheet-list [data-q="save2"]').dispatchEvent(
+  new dom2.window.MouseEvent("click", { bubbles: true }),
+);
+await sleep(500);
+check(
+  "saving from the mini list works",
+  !!doc2.querySelector('#qsheet-list [data-slot="2"] img'),
+);
+doc2.querySelector("#qsheet-close").dispatchEvent(new dom2.window.MouseEvent("click", { bubbles: true }));
+check(
+  "the mini list closes again",
+  !doc2.querySelector("#shell").classList.contains("qsheet-open"),
 );
 
 // jsdom keeps timers (the running emulator, toasts) alive forever; close both
