@@ -61,7 +61,19 @@ Setiap push yang mengubah `android/`, `src/`, atau `tools/` memicu build baru
 (`.github/workflows/android-apk.yml`), mengunggah artifact
 `gun-nac-offline-debug-apk`, dan membuat release `apk-<nomor>`.
 
-## 3. Build aplikasi Kotlin (Android) dari sumber
+## 3. Import ROM di APK (diperbaiki di apk-6)
+
+- **Import ROM** memakai *Android document picker* lewat
+  `WebChromeClient.onShowFileChooser` — inilah yang hilang sebelumnya, sehingga
+  menekan tombol tidak melakukan apa pun di WebView.
+- Bisa memilih **beberapa file** sekaligus, termasuk `.zip` (entry `.nes`
+  pertama diekstrak di Kotlin).
+- Alternatif: buka `.nes` dari file manager → *Open with* → **Pocket NES**.
+- Kalau picker tidak tersedia, fallback `AndroidBridge.openRomPicker()`.
+- Save state slot 1/2 kini benar-benar menyimpan (listener sebelumnya
+  terpasang pada elemen yang sudah dihapus).
+
+## 4. Build aplikasi Kotlin (Android) dari sumber
 
 ```bash
 npm install && npm run build     # menyalin dist/ ke android/app/src/main/assets/web
@@ -85,7 +97,7 @@ Kotlin 2.0, minSdk 24, targetSdk 35).
 - `assets/web/roms/` bisa memuat ROM pribadi agar ikut di APK; file itu
   di-*serve* oleh `RomPathHandler` (read-only, tanpa path traversal).
 
-## 4. Yang sudah diuji
+## 5. Yang sudah diuji
 
 | Uji | Perintah | Hasil |
 |---|---|---|
@@ -105,7 +117,7 @@ Release `apk-4` adalah build yang lolos: `assembleDebug` sukses, `apksigner
 verify` lolos, dan APK memuat `assets/web/` (index.html, emulator.js, app.js,
 roms/test.nes).
 
-## 5. Fitur
+## 6. Fitur
 
 - Kontrol sentuh: D-pad radial (geser jempol tanpa lepas), A/B, Start, Select.
 - Keyboard: panah, `Z`/`X` (A/B), `Enter` Start, `Shift` Select, `Tab` Select.
@@ -114,9 +126,25 @@ roms/test.nes).
 - Mute, pause, reset, fullscreen, thumbnail library, drag & drop file.
 - Info mapper: build ini mendukung mapper 0/1/2/3/4/5/7/9/11/34/38/66/71/79/94/118/119/140/180/240/241 (Gun Nac memakai MMC3/mapper 4).
 
-## 6. Struktur
+## 7. Opsi emulator native & repository publik
+
+Ringkasan lengkap: [`docs/EMULATOR-NATIVE.md`](docs/EMULATOR-NATIVE.md).
+Modul `android/native/` sudah berisi integrasi **JNI + libretro FCEUmm**
+(C core GPLv2, UI Kotlin), diaktifkan dengan
+`./gradlew -PenableNative=true :native:assembleDebug`.
+
+## 7b. Kenapa build default bukan native Kotlin?
+
+Build default sengaja tetap WebView + jsnes: satu codebase untuk web & APK,
+tanpa NDK, dan tanpa kewajiban GPL. Jalur native tetap tersedia (bagian 7) dan
+memakai kontrak JNI yang bersih di `android/nes/src/main/cpp/nes_jni.cpp`.
+
+## 8. Struktur
 
 ```
+android/native/                           # modul native (JNI + FCEUmm, UI Kotlin)
+android/nes/src/main/cpp/                 # CMakeLists + nes_jni.cpp (shim libretro)
+docs/EMULATOR-NATIVE.md                   # riset emulator Kotlin & core GPL
 index.html, manifest.webmanifest, sw.js   # shell PWA
 src/emulator.js                           # glue jsnes: canvas, audio, input, SRAM
 src/app.js                                # UI, library, save state, bridge Kotlin
@@ -127,13 +155,6 @@ android/                                  # aplikasi Kotlin (WebView, offline-to
 roms/                                     # tempat Anda menaruh ROM sendiri (gitignored)
 docs/UNDUH-DAN-BERMAIN.md                 # panduan hosting/memasang
 ```
-
-## 7. Kenapa bukan emulator native Kotlin?
-
-Bisa saja (mis. core libretro/Nostalgia.NES via NDK), tapi jsnes memberi hasil
-identik untuk NES, jauh lebih mudah diaudit, dan satu codebase dipakai di web +
-Android. Jika Anda ingin core Kotlin murni, `android/` siap diganti: kontrak
-JS-nya cuma `__gunNacOpenRom`, `__gunNacPause`, `__gunNacResume`.
 
 ## Lisensi & hak cipta
 

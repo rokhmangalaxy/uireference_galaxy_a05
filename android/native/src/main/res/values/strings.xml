@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Pocket NES (native)</string>
+    <string name="choose_rom">Pilih ROM .nes untuk mulai</string>
+    <string name="rom_unreadable">ROM tidak bisa dibaca</string>
+    <string name="core_missing">Core native belum dibundel.\nBuild dengan -PenableNative=true dan submodule fceumm (lihat native/README.md).</string>
+</resources>
