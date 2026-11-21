@@ -30,9 +30,9 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Assemble debug APK
+      - name: Assemble debug APK and compile instrumented tests
         working-directory: android_ui20
-        run: ./gradlew :app:assembleDebug
+        run: ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
