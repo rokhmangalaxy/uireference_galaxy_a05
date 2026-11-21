@@ -2,12 +2,14 @@ package com.emrobinso.uistylegallery
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -23,6 +25,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -144,33 +149,105 @@ private fun StyleGalleryApp(initialStyle: Int = 0, onStyleChanged: (Int) -> Unit
                             Text("Konten sama, tampilan berbeda.", style = MaterialTheme.typography.bodySmall, color = style.muted)
                         }
                         HorizontalDivider(color = style.muted.copy(alpha = .2f))
-                        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(vertical = 8.dp)) {
-                            styles.forEachIndexed { index, item ->
-                                NavigationDrawerItem(
-                                    label = { Text(item.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                                    selected = index == selected,
-                                    onClick = { selected = index; onStyleChanged(index); scope.launch { drawerState.close() } },
-                                    icon = { Icon(item.icon, contentDescription = null) },
-                                    badge = { if (index == selected) Icon(Icons.Default.Check, contentDescription = "Dipilih") },
-                                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding).testTag("style_menu_$index")
-                                )
+                        Column(
+                            Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 14.dp, vertical = 14.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            styles.indices.chunked(3).forEach { row ->
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    row.forEach { index ->
+                                        StylePreviewItem(
+                                            style = styles[index], selected = index == selected,
+                                            onClick = { selected = index; onStyleChanged(index); scope.launch { drawerState.close() } },
+                                            modifier = Modifier.weight(1f).testTag("style_menu_$index")
+                                        )
+                                    }
+                                    repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+                                }
                             }
                         }
                     }
                 }
             }
         ) {
-            GalleryScreen(style = style, index = selected, onMenuClick = { scope.launch { drawerState.open() } })
+            GalleryScreen(
+                style = style, index = selected,
+                drawerClosed = drawerState.isClosed && drawerState.targetValue == DrawerValue.Closed,
+                onMenuClick = { scope.launch { drawerState.open() } }
+            )
         }
     }
 }
 
+@Composable
+private fun StylePreviewItem(style: UiStyle, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val selectionColor = MaterialTheme.colorScheme.primary
+    val selectionContent = MaterialTheme.colorScheme.onPrimary
+    val frame = RoundedCornerShape(12.dp)
+    val miniShape = RoundedCornerShape((style.radius / 3).coerceIn(0, 9).dp)
+    Column(
+        modifier.semantics(mergeDescendants = true) { contentDescription = style.name }
+            .selectable(selected = selected, onClick = onClick, role = Role.RadioButton)
+            .padding(2.dp)
+    ) {
+        Box(
+            Modifier.fillMaxWidth().height(92.dp).clip(frame)
+                .background(style.background)
+                .border(if (selected) 2.dp else 1.dp, if (selected) selectionColor else MaterialTheme.colorScheme.outlineVariant, frame)
+                .padding(7.dp)
+        ) {
+            Column(Modifier.fillMaxSize()) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(10.dp).background(style.primary, miniShape))
+                    Spacer(Modifier.width(4.dp))
+                    Box(Modifier.weight(1f).height(4.dp).background(style.text.copy(alpha = .55f), miniShape))
+                    Spacer(Modifier.width(18.dp))
+                }
+                Spacer(Modifier.height(6.dp))
+                Row(Modifier.fillMaxWidth().weight(1f).clip(miniShape).background(style.surface)) {
+                    Column(Modifier.weight(1f).padding(5.dp)) {
+                        Box(Modifier.fillMaxWidth(.8f).height(5.dp).background(style.primary, miniShape))
+                        Spacer(Modifier.height(4.dp))
+                        Box(Modifier.fillMaxWidth().height(3.dp).background(style.muted.copy(alpha = .45f), miniShape))
+                        Spacer(Modifier.height(3.dp))
+                        Box(Modifier.fillMaxWidth(.7f).height(3.dp).background(style.muted.copy(alpha = .35f), miniShape))
+                        Spacer(Modifier.weight(1f))
+                        Box(Modifier.width(24.dp).height(8.dp).background(style.primary, miniShape))
+                    }
+                    Icon(style.icon, contentDescription = null, tint = style.primary, modifier = Modifier.padding(top = 5.dp, end = 5.dp).size(17.dp))
+                }
+                Spacer(Modifier.height(5.dp))
+                Row(Modifier.fillMaxWidth().height(8.dp).background(style.surfaceVariant, miniShape), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
+                    repeat(3) { i -> Box(Modifier.size(4.dp).background(if (i == 0) style.primary else style.muted.copy(alpha = .5f), RoundedCornerShape(50))) }
+                }
+            }
+            if (selected) {
+                Box(Modifier.align(Alignment.TopEnd).size(19.dp).background(selectionColor, RoundedCornerShape(50)), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Default.Check, contentDescription = null, tint = selectionContent, modifier = Modifier.size(13.dp))
+                }
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(style.name, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface, minLines = 2)
+    }
+}
+
+private data class BottomDestination(val label: String, val icon: ImageVector)
+private val bottomDestinations = listOf(
+    BottomDestination("Beranda", Icons.Default.Home),
+    BottomDestination("Rencana", Icons.Default.EditNote),
+    BottomDestination("Komponen", Icons.Default.Widgets)
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun GalleryScreen(style: UiStyle, index: Int, onMenuClick: () -> Unit) {
+private fun GalleryScreen(style: UiStyle, index: Int, drawerClosed: Boolean, onMenuClick: () -> Unit) {
     val snackbars = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var tab by rememberSaveable { mutableIntStateOf(0) }
+    var destination by rememberSaveable { mutableIntStateOf(0) }
+    val scrollStates = listOf(rememberScrollState(), rememberScrollState(), rememberScrollState())
+    BackHandler(enabled = destination != 0 && drawerClosed) { destination = 0 }
     var name by rememberSaveable { mutableStateOf("") }
     var selectedCategory by rememberSaveable { mutableStateOf("Desain") }
     var dropdownOpen by remember { mutableStateOf(false) }
@@ -185,12 +262,30 @@ private fun GalleryScreen(style: UiStyle, index: Int, onMenuClick: () -> Unit) {
     Scaffold(
         containerColor = style.background,
         snackbarHost = { SnackbarHost(snackbars) },
+        bottomBar = {
+            NavigationBar(containerColor = style.surface, contentColor = style.text) {
+                bottomDestinations.forEachIndexed { i, item ->
+                    NavigationBarItem(
+                        selected = destination == i,
+                        onClick = { destination = i },
+                        icon = { Icon(item.icon, contentDescription = null) },
+                        label = { Text(item.label, maxLines = 1) },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = style.primary, selectedTextColor = style.text,
+                            unselectedIconColor = style.muted, unselectedTextColor = style.muted,
+                            indicatorColor = style.surfaceVariant
+                        ),
+                        modifier = Modifier.testTag("bottom_nav_$i")
+                    )
+                }
+            }
+        },
         topBar = {
             TopAppBar(
                 title = {
                     Column {
                         Text("UI Style Gallery", style = MaterialTheme.typography.titleMedium, maxLines = 1)
-                        Text(style.name, style = MaterialTheme.typography.bodySmall, color = style.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(style.name, style = MaterialTheme.typography.bodySmall, color = style.muted, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.testTag("toolbar_style"))
                     }
                 },
                 navigationIcon = { IconButton(onClick = onMenuClick, modifier = Modifier.testTag("open_style_menu")) { Icon(Icons.Default.Menu, contentDescription = "Buka menu gaya") } },
@@ -200,118 +295,128 @@ private fun GalleryScreen(style: UiStyle, index: Int, onMenuClick: () -> Unit) {
         }
     ) { insets ->
         Column(
-            Modifier.fillMaxSize().padding(insets).verticalScroll(rememberScrollState())
+            Modifier.fillMaxSize().padding(insets).verticalScroll(scrollStates[destination.coerceIn(bottomDestinations.indices)])
                 .padding(horizontal = 20.dp),
             verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
             Spacer(Modifier.height(2.dp))
-            HeroCard(style)
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("Ruang eksplorasi", style = MaterialTheme.typography.headlineSmall, color = style.text)
-                    Text("Coba elemen yang sama di setiap gaya.", style = MaterialTheme.typography.bodyMedium, color = style.muted)
-                }
-            }
-            TabRow(selectedTabIndex = tab, containerColor = style.background, contentColor = style.primary) {
-                listOf("Ringkasan", "Aktivitas").forEachIndexed { i, title ->
-                    Tab(selected = tab == i, onClick = { tab = i }, text = { Text(title) })
-                }
-            }
-            if (tab == 0) {
-                DemoCard(style) {
-                    SectionTitle("Progres mingguan", "Contoh kartu, indikator, dan tombol", Icons.Default.Insights)
-                    Spacer(Modifier.height(18.dp))
-                    Row(verticalAlignment = Alignment.Bottom) {
-                        Text(if (completed) "100%" else "68%", style = MaterialTheme.typography.headlineMedium, color = style.text)
-                        Spacer(Modifier.weight(1f))
-                        Text(if (completed) "Selesai" else "4 dari 6 tugas", style = MaterialTheme.typography.bodySmall, color = style.muted)
-                    }
-                    Spacer(Modifier.height(10.dp))
-                    LinearProgressIndicator(progress = { if (completed) 1f else .68f }, modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(50)), trackColor = style.surfaceVariant)
-                    Spacer(Modifier.height(18.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(onClick = { completed = !completed }) { Text(if (completed) "Atur ulang" else "Selesaikan") }
-                        OutlinedButton(onClick = { showDialog = true }) { Text("Detail") }
+            if (destination == 0) {
+                HeroCard(style)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Ruang eksplorasi", style = MaterialTheme.typography.headlineSmall, color = style.text)
+                        Text("Coba elemen yang sama di setiap gaya.", style = MaterialTheme.typography.bodyMedium, color = style.muted)
                     }
                 }
-            } else {
+                TabRow(selectedTabIndex = tab, containerColor = style.background, contentColor = style.primary) {
+                    listOf("Ringkasan", "Aktivitas").forEachIndexed { i, title ->
+                        Tab(selected = tab == i, onClick = { tab = i }, text = { Text(title) })
+                    }
+                }
+                if (tab == 0) {
+                    DemoCard(style) {
+                        SectionTitle("Progres mingguan", "Contoh kartu, indikator, dan tombol", Icons.Default.Insights)
+                        Spacer(Modifier.height(18.dp))
+                        Row(verticalAlignment = Alignment.Bottom) {
+                            Text(if (completed) "100%" else "68%", style = MaterialTheme.typography.headlineMedium, color = style.text)
+                            Spacer(Modifier.weight(1f))
+                            Text(if (completed) "Selesai" else "4 dari 6 tugas", style = MaterialTheme.typography.bodySmall, color = style.muted)
+                        }
+                        Spacer(Modifier.height(10.dp))
+                        LinearProgressIndicator(progress = { if (completed) 1f else .68f }, modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(50)), trackColor = style.surfaceVariant)
+                        Spacer(Modifier.height(18.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(onClick = { completed = !completed }) { Text(if (completed) "Atur ulang" else "Selesaikan") }
+                            OutlinedButton(onClick = { showDialog = true }) { Text("Detail") }
+                        }
+                    }
+                } else {
+                    DemoCard(style) {
+                        SectionTitle("Aktivitas terbaru", "Contoh daftar dan ikon", Icons.Default.History)
+                        Spacer(Modifier.height(8.dp))
+                        ActivityRow(Icons.Default.CheckCircle, "Membuat rencana", "Hari ini · 09.30", style)
+                        HorizontalDivider(color = style.muted.copy(alpha = .2f))
+                        ActivityRow(Icons.Default.AutoAwesome, "Mencari inspirasi", "Kemarin · 16.15", style)
+                        HorizontalDivider(color = style.muted.copy(alpha = .2f))
+                        ActivityRow(Icons.Default.Favorite, "Menyimpan ide", "Senin · 10.00", style)
+                    }
+                }
+            }
+            if (destination == 1) {
+                Text("Rencana", style = MaterialTheme.typography.headlineSmall, color = style.text)
+                Text("Coba formulir dan berbagai kontrol interaktif.", style = MaterialTheme.typography.bodyMedium, color = style.muted)
                 DemoCard(style) {
-                    SectionTitle("Aktivitas terbaru", "Contoh daftar dan ikon", Icons.Default.History)
+                    SectionTitle("Buat rencana", "Contoh formulir dan pilihan", Icons.Default.EditNote)
+                    Spacer(Modifier.height(16.dp))
+                    OutlinedTextField(
+                        value = name, onValueChange = { name = it },
+                        modifier = Modifier.fillMaxWidth().testTag("plan_name"), singleLine = true,
+                        label = { Text("Nama rencana") }, placeholder = { Text("Mis. Belajar desain") },
+                        leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) }
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    Box {
+                        OutlinedButton(onClick = { dropdownOpen = true }, modifier = Modifier.fillMaxWidth()) {
+                            Icon(Icons.Default.Category, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp)); Text("Kategori: $selectedCategory", modifier = Modifier.weight(1f)); Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                        }
+                        DropdownMenu(expanded = dropdownOpen, onDismissRequest = { dropdownOpen = false }) {
+                            categories.forEach { category ->
+                                DropdownMenuItem(text = { Text(category) }, onClick = { selectedCategory = category; dropdownOpen = false })
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(16.dp))
+                    Text("Prioritas", style = MaterialTheme.typography.titleSmall)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        priorities.forEach { priority ->
+                            Row(Modifier.weight(1f).clickable { selectedPriority = priority }, verticalAlignment = Alignment.CenterVertically) {
+                                RadioButton(selected = selectedPriority == priority, onClick = { selectedPriority = priority })
+                                Text(priority, style = MaterialTheme.typography.bodyMedium)
+                            }
+                        }
+                    }
                     Spacer(Modifier.height(8.dp))
-                    ActivityRow(Icons.Default.CheckCircle, "Membuat rencana", "Hari ini · 09.30", style)
-                    HorizontalDivider(color = style.muted.copy(alpha = .2f))
-                    ActivityRow(Icons.Default.AutoAwesome, "Mencari inspirasi", "Kemarin · 16.15", style)
-                    HorizontalDivider(color = style.muted.copy(alpha = .2f))
-                    ActivityRow(Icons.Default.Favorite, "Menyimpan ide", "Senin · 10.00", style)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) { Text("Pengingat", style = MaterialTheme.typography.titleSmall); Text("Aktifkan notifikasi contoh", style = MaterialTheme.typography.bodySmall, color = style.muted) }
+                        Switch(checked = notifications, onCheckedChange = { notifications = it })
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Target harian", modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
+                        Text("${(slider * 100).toInt()}%", color = style.primary, style = MaterialTheme.typography.labelLarge)
+                    }
+                    Slider(value = slider, onValueChange = { slider = it })
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { agreed = !agreed }) {
+                        Checkbox(checked = agreed, onCheckedChange = { agreed = it })
+                        Text("Saya siap memulai", style = MaterialTheme.typography.bodyMedium)
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    Button(onClick = {
+                        val message = if (name.isBlank()) "Isi nama rencana terlebih dahulu." else if (!agreed) "Centang kesiapan terlebih dahulu." else "Rencana ‘${name.trim()}’ siap sebagai contoh."
+                        scope.launch { snackbars.showSnackbar(message) }
+                    }, modifier = Modifier.fillMaxWidth()) {
+                        Icon(Icons.Default.Add, contentDescription = null); Spacer(Modifier.width(8.dp)); Text("Simpan rencana")
+                    }
                 }
             }
-            DemoCard(style) {
-                SectionTitle("Buat rencana", "Contoh formulir dan pilihan", Icons.Default.EditNote)
-                Spacer(Modifier.height(16.dp))
-                OutlinedTextField(
-                    value = name, onValueChange = { name = it },
-                    modifier = Modifier.fillMaxWidth().testTag("plan_name"), singleLine = true,
-                    label = { Text("Nama rencana") }, placeholder = { Text("Mis. Belajar desain") },
-                    leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) }
-                )
-                Spacer(Modifier.height(12.dp))
-                Box {
-                    OutlinedButton(onClick = { dropdownOpen = true }, modifier = Modifier.fillMaxWidth()) {
-                        Icon(Icons.Default.Category, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(8.dp)); Text("Kategori: $selectedCategory", modifier = Modifier.weight(1f)); Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+            if (destination == 2) {
+                Text("Komponen", style = MaterialTheme.typography.headlineSmall, color = style.text)
+                Text("Elemen yang sama dalam berbagai gaya.", style = MaterialTheme.typography.bodyMedium, color = style.muted)
+                DemoCard(style) {
+                    SectionTitle("Jelajahi komponen", "Contoh chip, ikon, dan pesan", Icons.Default.Widgets)
+                    Spacer(Modifier.height(12.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(selected = selectedCategory == "Desain", onClick = { selectedCategory = "Desain" }, label = { Text("Desain") })
+                        FilterChip(selected = selectedCategory == "Inspirasi", onClick = { selectedCategory = "Inspirasi" }, label = { Text("Inspirasi") })
                     }
-                    DropdownMenu(expanded = dropdownOpen, onDismissRequest = { dropdownOpen = false }) {
-                        categories.forEach { category ->
-                            DropdownMenuItem(text = { Text(category) }, onClick = { selectedCategory = category; dropdownOpen = false })
+                    Spacer(Modifier.height(8.dp))
+                    Surface(color = style.surfaceVariant, shape = MaterialTheme.shapes.medium) {
+                        Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Info, contentDescription = null, tint = style.primary)
+                            Spacer(Modifier.width(12.dp))
+                            Text("Data di halaman ini hanya contoh lokal.", style = MaterialTheme.typography.bodySmall, color = style.text)
                         }
-                    }
-                }
-                Spacer(Modifier.height(16.dp))
-                Text("Prioritas", style = MaterialTheme.typography.titleSmall)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    priorities.forEach { priority ->
-                        Row(Modifier.weight(1f).clickable { selectedPriority = priority }, verticalAlignment = Alignment.CenterVertically) {
-                            RadioButton(selected = selectedPriority == priority, onClick = { selectedPriority = priority })
-                            Text(priority, style = MaterialTheme.typography.bodyMedium)
-                        }
-                    }
-                }
-                Spacer(Modifier.height(8.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) { Text("Pengingat", style = MaterialTheme.typography.titleSmall); Text("Aktifkan notifikasi contoh", style = MaterialTheme.typography.bodySmall, color = style.muted) }
-                    Switch(checked = notifications, onCheckedChange = { notifications = it })
-                }
-                Spacer(Modifier.height(12.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Target harian", modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
-                    Text("${(slider * 100).toInt()}%", color = style.primary, style = MaterialTheme.typography.labelLarge)
-                }
-                Slider(value = slider, onValueChange = { slider = it })
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { agreed = !agreed }) {
-                    Checkbox(checked = agreed, onCheckedChange = { agreed = it })
-                    Text("Saya siap memulai", style = MaterialTheme.typography.bodyMedium)
-                }
-                Spacer(Modifier.height(12.dp))
-                Button(onClick = {
-                    val message = if (name.isBlank()) "Isi nama rencana terlebih dahulu." else if (!agreed) "Centang kesiapan terlebih dahulu." else "Rencana ‘${name.trim()}’ siap sebagai contoh."
-                    scope.launch { snackbars.showSnackbar(message) }
-                }, modifier = Modifier.fillMaxWidth()) {
-                    Icon(Icons.Default.Add, contentDescription = null); Spacer(Modifier.width(8.dp)); Text("Simpan rencana")
-                }
-            }
-            DemoCard(style) {
-                SectionTitle("Jelajahi komponen", "Contoh chip, ikon, dan pesan", Icons.Default.Widgets)
-                Spacer(Modifier.height(12.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(selected = selectedCategory == "Desain", onClick = { selectedCategory = "Desain" }, label = { Text("Desain") })
-                    FilterChip(selected = selectedCategory == "Inspirasi", onClick = { selectedCategory = "Inspirasi" }, label = { Text("Inspirasi") })
-                }
-                Spacer(Modifier.height(8.dp))
-                Surface(color = style.surfaceVariant, shape = MaterialTheme.shapes.medium) {
-                    Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Info, contentDescription = null, tint = style.primary)
-                        Spacer(Modifier.width(12.dp))
-                        Text("Data di halaman ini hanya contoh lokal.", style = MaterialTheme.typography.bodySmall, color = style.text)
                     }
                 }
             }
@@ -424,3 +529,14 @@ private fun ActivityRow(icon: ImageVector, title: String, subtitle: String, styl
 
 @Preview(showBackground = true, widthDp = 360, heightDp = 800)
 @Composable private fun NeonPreview() { StyleGalleryApp(initialStyle = 15) }
+
+@Preview(showBackground = true, widthDp = 340, heightDp = 160)
+@Composable private fun StyleGridItemPreview() {
+    StyleTheme(styles[0]) {
+        Row(Modifier.fillMaxWidth().background(styles[0].surface).padding(12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            StylePreviewItem(styles[0], selected = true, onClick = {}, modifier = Modifier.weight(1f))
+            StylePreviewItem(styles[2], selected = false, onClick = {}, modifier = Modifier.weight(1f))
+            StylePreviewItem(styles[8], selected = false, onClick = {}, modifier = Modifier.weight(1f))
+        }
+    }
+}
