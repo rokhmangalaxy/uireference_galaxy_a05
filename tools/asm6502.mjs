@@ -323,5 +323,12 @@ export function assemble(source, { org = 0x8000, symbols: initial = {} } = {}) {
     void pending;
   }
 
-  return { bytes: image.slice(imageBase, maxAddress), symbols, imageBase };
+  // Emit the whole [imageBase, highestAddress] span so callers get a complete
+  // ROM image (vectors at $FFFA must land at the right offset even when the
+  // last thing written was a `.res` block).
+  return {
+    bytes: image.slice(imageBase, Math.max(maxAddress, pc > 0 ? pc : 0)),
+    symbols,
+    imageBase,
+  };
 }

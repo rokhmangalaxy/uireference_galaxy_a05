@@ -146,6 +146,10 @@ async function boot() {
   }
   bindControls();
   await renderLibrary();
+  // Kotlin queues ROM payloads until this fires; without it a file opened from
+  // the file manager could arrive before app.js was listening.
+  window.AndroidBridge?.onWebReady?.();
+  log("web ready");
   hideLoader();
   window.addEventListener("beforeunload", () => {
     state.player?.stop();
@@ -201,7 +205,8 @@ async function loadRom(bytes, name) {
       } catch {}
     }, 2500);
   } catch (e) {
-    toast(`Can't load ROM: ${e.message}`, 6000);
+    toast(`ROM tidak bisa dijalankan: ${e.message}`, 8000);
+    log(`load failed: ${e.message}`);
   }
 }
 
@@ -483,16 +488,58 @@ function base64ToBytes(b64) {
   return out;
 }
 
-window.__gunNacOpenRom = async (name, base64) => {
+const romChunks = new Map();
+
+window.__gunNacRomBegin = (name, count) => {
+  romChunks.set(name, { parts: new Array(count), got: 0, count });
+  log(`rom begin ${name} x${count}`);
+};
+
+window.__gunNacRomChunk = (name, index, chunk) => {
+  const entry = romChunks.get(name);
+  if (!entry) return;
+  entry.parts[index] = chunk;
+  entry.got++;
+  if (entry.got === entry.count) finishRom(name);
+};
+
+window.__gunNacRomEnd = (name) => {
+  const entry = romChunks.get(name);
+  if (entry && entry.got === entry.count) finishRom(name);
+};
+
+async function finishRom(name) {
+  const entry = romChunks.get(name);
+  if (!entry) return;
+  romChunks.delete(name);
   try {
-    const bytes = base64ToBytes(base64);
+    const bytes = base64ToBytes(entry.parts.join(""));
+    if (bytes.length < 16 || bytes[0] !== 0x4e || bytes[1] !== 0x45 || bytes[2] !== 0x53) {
+      toast(`"${name}" bukan file iNES yang valid (${bytes.length} byte).`, 8000);
+      return;
+    }
     await db.put(DB_STORE, name, bytes);
     await loadRom(bytes, name);
     await renderLibrary();
   } catch (e) {
-    toast(`Gagal membuka ROM: ${e.message}`, 6000);
+    toast(`Gagal membuka ROM: ${e.message}`, 8000);
+    log(`rom error ${e.message}`);
   }
+}
+
+// Backwards-compatible single-shot entry point (still used by tests/older
+// shells).
+window.__gunNacOpenRom = async (name, base64) => {
+  window.__gunNacRomBegin(name, 1);
+  window.__gunNacRomChunk(name, 0, base64);
 };
+
+function log(message) {
+  try {
+    window.AndroidBridge?.log?.(String(message));
+    if (!window.AndroidBridge) console.log("[gun-nac]", message);
+  } catch {}
+}
 window.__gunNacPause = () => state.player?.pause();
 window.__gunNacResume = () => {
   if (state.romKey && !state.paused) state.player?.resume();

@@ -6,12 +6,14 @@
   "type": "module",
   "scripts": {
     "build": "node tools/build.mjs",
-    "test": "node test/smoke.mjs && node test/bundle.test.mjs",
+    "test": "node test/smoke.mjs && node test/bundle.test.mjs && node test/e2e-import.test.mjs",
     "serve": "node tools/serve.mjs",
     "rom": "node tools/make-test-rom.mjs"
   },
   "devDependencies": {
     "esbuild": "^0.28.2",
+    "fake-indexeddb": "^6.2.8",
+    "jsdom": "^31.0.1",
     "jsnes": "^3.0.0"
   }
 }

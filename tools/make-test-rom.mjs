@@ -23,6 +23,8 @@ import { buildFontChr } from "./font8x8.mjs";
 
 const CODE = String.raw`
 ; ------------------------------------------------------------------ reset --
+; NOTE: the NROM build keeps the code at $C000 (NROM-256 mirrors the last
+; 16 KiB bank at $C000-$FFFF, so the vector table works there too).
 .org $C000
 RESET:
     SEI
@@ -58,14 +60,15 @@ wait2:
     BPL wait2
 
 ; ------------------------------------------------------- upload CHR-RAM ----
-    LDA #$00
+    LDA #CHRDST_HI
     STA $2006
-    STA $2006          ; VRAM address $0000 (pattern table 0)
+    LDA #$00
+    STA $2006          ; VRAM address CHRDST_HI*256
     LDA #<CHRTILES
     STA $00
     LDA #>CHRTILES
     STA $01
-    LDX #$20           ; 32 * 256 = 8192 bytes
+    LDX #CHR_PAGES     ; pages of 256 bytes to copy
     LDY #$00
 chrpage:
     LDA ($00),Y
@@ -154,12 +157,79 @@ IRQ:
 const TEXT1 = "GUN NAC - OFFLINE TEST ROM";
 const TEXT2 = "EMULATOR OK";
 
+/**
+ * MMC3 (mapper 4) variant of the test ROM — the same mapper Gun Nac uses.
+ * 128 KiB PRG in 8 banks; the code sits in the *last* bank, which MMC3 maps to
+ * $E000-$FFFF without any bank switching, so a boot test exercises mapper 4
+ * initialisation, PRG-RAM access and CHR-RAM upload.
+ */
+export function buildMmc3TestRom() {
+  const chr = buildFontChr();
+  // The shared CODE blob is assembled at $C000 for NROM. MMC3's fixed bank is
+  // $E000, so re-home it before appending the data and vectors.
+  const code = CODE.replace(".org $C000", ".org $E000");
+  // MMC3's fixed bank at $E000 is only 8 KiB, so we cannot carry the full 8 KiB
+  // font next to the code. Upload just tiles 32..95 (1 KiB) instead.
+  const compactChr = chr.subarray(32 * 16, 96 * 16);
+  const withChr = `${code}
+
+CHRTILES:
+    .res ${compactChr.length}
+
+TEXT1:
+    .byte "${TEXT1}", 0
+TEXT2:
+    .byte "${TEXT2}", 0
+
+; ----------------------------------------------------------------- vectors --
+.org $FFFA
+    .word NMI
+    .word RESET
+    .word IRQ
+`;
+
+  const { bytes, symbols, imageBase } = assemble(withChr, {
+    org: 0xe000,
+    symbols: { CHRDST_HI: 0x02, CHR_PAGES: 4 }, // write tiles 32.. to $0200
+  });
+  if (imageBase !== 0xe000) {
+    throw new Error(`MMC3 test ROM must start at $E000, got $${imageBase.toString(16)}`);
+  }
+  if (bytes.length > 8 * 1024) {
+    throw new Error(`MMC3 fixed bank overflow: ${bytes.length} > 8192 bytes`);
+  }
+  const chrOffset = symbols.CHRTILES - imageBase;
+  if (chrOffset + compactChr.length > 0xfffa - 0xe000) {
+    throw new Error("MMC3 ROM: code + glyphs do not fit in the fixed bank");
+  }
+  const prg = new Uint8Array(128 * 1024);
+  // A 16 KiB PRG bank covers $C000-$FFFF, so the $E000-$FFFF image lives in
+  // the SECOND half of bank 7 at offset +8192. Bank 7 is hardwired into
+  // $C000-$FFFF by MMC3 (and $E000-$FFFF is always bank 7).
+  const FIXED_BANK_OFFSET = 7 * 16 * 1024 + 0x2000;
+  prg.set(bytes, FIXED_BANK_OFFSET);
+  prg.set(compactChr, FIXED_BANK_OFFSET + chrOffset);
+
+  const header = new Uint8Array(16);
+  header.set([0x4e, 0x45, 0x53, 0x1a]);
+  header[4] = 8; // 8 x 16 KiB PRG = 128 KiB
+  header[5] = 0; // CHR-RAM
+  header[6] = 0x40; // mapper 4 low nibble, horizontal mirroring, no battery
+  header[7] = 0;
+
+  const rom = new Uint8Array(16 + prg.length);
+  rom.set(header, 0);
+  rom.set(prg, 16);
+  return rom;
+}
+
 export function buildTestRom() {
   const chr = buildFontChr();
   const code = CODE;
 
   // CHRTILES must live after the code but before the vector table at $FFFA.
   // Put it right after the code, then re-assemble with the vectors last.
+  // NROM-256 has a whole 16 KiB bank here, so the full 8 KiB font fits.
   const withChr = `${code}
 
 CHRTILES:
@@ -177,7 +247,10 @@ TEXT2:
     .word IRQ
 `;
 
-  const { bytes, symbols, imageBase } = assemble(withChr, { org: 0xc000 });
+  const { bytes, symbols, imageBase } = assemble(withChr, {
+    org: 0xc000,
+    symbols: { CHRDST_HI: 0x00, CHR_PAGES: 0x20 },
+  });
   if (process.env.DEBUG_ROM) {
     console.error("bytes", bytes.length, "symbols", {
       RESET: symbols.RESET.toString(16),

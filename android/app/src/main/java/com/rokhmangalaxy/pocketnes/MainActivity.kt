@@ -7,6 +7,7 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.OpenableColumns
 import android.util.Base64
+import android.util.Log
 import android.view.View
 import android.view.WindowManager
 import android.webkit.JavascriptInterface
@@ -43,6 +44,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var assetLoader: WebViewAssetLoader
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
 
+    /** Code queued until the page has signalled that app.js is live. */
+    private val pendingJs = ArrayDeque<String>()
+    private var webReady = false
+
     private val pickRom: ActivityResultLauncher<Array<String>> =
         registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
             val callback = filePathCallback
@@ -51,10 +56,17 @@ class MainActivity : AppCompatActivity() {
                 callback?.onReceiveValue(null)
                 return@registerForActivityResult
             }
-            // Feed the first file to the <input>, then load every selected ROM
-            // through the JS bridge so multi-select works as expected.
-            callback?.onReceiveValue(arrayOf(uris.first()))
-            uris.drop(1).forEach(::sendRomToWebView)
+            if (callback != null) {
+                // Coming from <input type=file>: hand the first URI to the
+                // page, load any extras ourselves.
+                callback.onReceiveValue(arrayOf(uris.first()))
+                uris.drop(1).forEach { sendRomToWebView(it) }
+            } else {
+                // Coming from AndroidBridge.openRomPicker(): there is no
+                // <input> callback, so every URI (including the FIRST one, which
+                // used to be dropped here) must be loaded by us.
+                uris.forEach { sendRomToWebView(it) }
+            }
         }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -131,6 +143,12 @@ class MainActivity : AppCompatActivity() {
                     view: WebView,
                     request: WebResourceRequest,
                 ): Boolean = !request.url.toString().startsWith(BASE_URL)
+
+                override fun onPageFinished(view: WebView, url: String) {
+                    // Fallback: if app.js never calls onWebReady() (older build,
+                    // JS error), flush anyway after the page settles.
+                    view.postDelayed({ if (!webReady) flushPendingJs() }, 1500)
+                }
             }
         }
 
@@ -150,12 +168,12 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         handleRomIntent(intent)
-        webView.evaluateJavascript("window.__gunNacResume && window.__gunNacResume();", null)
+        runJs("window.__gunNacResume && window.__gunNacResume();")
     }
 
     override fun onPause() {
         super.onPause()
-        webView.evaluateJavascript("window.__gunNacPause && window.__gunNacPause();", null)
+        runJs("window.__gunNacPause && window.__gunNacPause();")
     }
 
     /** "Open with" on a .nes file: read, unzip if needed, hand to JS. */
@@ -191,11 +209,31 @@ class MainActivity : AppCompatActivity() {
         }
         val safeName = name.substringAfterLast('/').replace("'", "").replace("\\", "")
         val payload = Base64.encodeToString(bytes, Base64.NO_WRAP)
-        webView.post {
-            webView.evaluateJavascript(
-                "window.__gunNacOpenRom('$safeName','$payload');",
-                null,
-            )
+        // Large ROMs are sent in chunks: some WebView builds choke on a single
+        // multi-hundred-KB evaluateJavascript argument.
+        val chunks = payload.chunked(CHUNK_CHARS)
+        runJs("window.__gunNacRomBegin && window.__gunNacRomBegin('$safeName', ${chunks.size});")
+        chunks.forEachIndexed { index, chunk ->
+            runJs("window.__gunNacRomChunk && window.__gunNacRomChunk('$safeName', $index, '$chunk');")
+        }
+        runJs("window.__gunNacRomEnd && window.__gunNacRomEnd('$safeName');")
+        toast(getString(R.string.rom_loading, name))
+    }
+
+    /** Runs JS now if the page is ready, otherwise as soon as it is. */
+    private fun runJs(code: String) {
+        if (webReady) {
+            webView.post { webView.evaluateJavascript(code, null) }
+        } else {
+            pendingJs.addLast(code)
+            if (pendingJs.size > 64) pendingJs.removeFirst()
+        }
+    }
+
+    private fun flushPendingJs() {
+        webReady = true
+        while (pendingJs.isNotEmpty()) {
+            webView.evaluateJavascript(pendingJs.removeFirst(), null)
         }
     }
 
@@ -278,6 +316,18 @@ class MainActivity : AppCompatActivity() {
 
         @JavascriptInterface
         fun sdkInt(): Int = Build.VERSION.SDK_INT
+
+        /** app.js calls this when the player is constructed and listening. */
+        @JavascriptInterface
+        fun onWebReady() {
+            runOnUiThread { flushPendingJs() }
+        }
+
+        /** JS-side diagnostics land in logcat so "nothing happens" is debuggable. */
+        @JavascriptInterface
+        fun log(message: String) {
+            Log.i("PocketNesBridge", message)
+        }
     }
 
     /** Serves ROMs bundled in assets (roms/test.nes, or a personal dump). */
@@ -307,6 +357,7 @@ class MainActivity : AppCompatActivity() {
         private const val BASE_URL = "https://$DOMAIN/assets/web"
         private const val MAX_ROM_BYTES = 8 * 1024 * 1024
         private const val HANDLED_EXTRA = "cc.rom.handled"
+        private const val CHUNK_CHARS = 60_000
         private val SUPPORTED = listOf(".nes", ".fds", ".unf", ".unif")
     }
 }
