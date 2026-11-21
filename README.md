@@ -50,8 +50,10 @@ release asset (tidak perlu login):
 **https://github.com/rokhmangalaxy/uireference_galaxy_a05/releases**
 
 - Paket `cc.gunnac.offline` · minSdk 24 (Android 7+) · targetSdk 35
-- Ukuran ± 3,5 MB · **tanpa izin INTERNET**
-- sha256 dicantumkan di catatan setiap release (dibuat oleh CI)
+- Ukuran 3.665.074 byte (± 3,5 MB) · **tanpa izin INTERNET**
+- Release terbaru: **apk-5** — sha256
+  `e6c9db6b00ff4425adf1a4a0a2d571a034bfe880a26fb258230f8135d7d9768f`
+  (dibuat & diverifikasi CI, termasuk `apksigner verify`)
 - Install: unduh di HP → izinkan *Install unknown apps* untuk browser → buka
   APK. Buka file `.nes` dari file manager → *Open with* → **Gun Nac Offline**.
 
