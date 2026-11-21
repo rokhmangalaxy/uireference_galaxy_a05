@@ -50,12 +50,13 @@ release asset (tidak perlu login):
 **https://github.com/rokhmangalaxy/uireference_galaxy_a05/releases**
 
 - Paket `com.rokhmangalaxy.pocketnes` · minSdk 24 (Android 7+) · targetSdk 35
-- Ukuran 3.673.422 byte (± 3,5 MB) · **tanpa izin INTERNET**
-- Release terbaru: **apk-10** — sha256
-  `c3113d2ea832a8dcfe678b7e6980c219c2b34d787cd44ed432ba4a98c1c6f442`
-  (dibuat & diverifikasi CI, termasuk `apksigner verify`). Ini build pertama
-  dengan **layout yang benar** (tidak ada scroll ke samping, tombol B/A di
-  kanan juga saat landscape); apk-8 dan sebelumnya **jangan** dipakai lagi.
+- Ukuran 3.683.489 byte (± 3,5 MB) · **tanpa izin INTERNET**
+- Release terbaru: **apk-12** — sha256
+  `b8798f366358aa6f6850823db8b0f6e474b44d0d301b5a776758efa4fbe80dcb`
+  (dibuat & diverifikasi CI, termasuk `apksigner verify`). Build ini menambah:
+  header otomatis menyusut saat bermain, **auto-resume ROM terakhir**, save state
+  dengan screenshot otomatis, export/import state, **mode atur posisi tombol**,
+  dan 5 gaya tombol.
 - Install: unduh di HP → izinkan *Install unknown apps* untuk browser → buka
   APK. Buka file `.nes` dari file manager → *Open with* → **Pocket NES**.
 
@@ -143,6 +144,24 @@ muncul di tengah layar saat landscape, penyebabnya:
 Sekarang ukuran kanvas selalu mengikuti kotak terkecil (lebar **dan** tinggi,
 boleh mengecil di bawah 1×), halaman tidak bisa digeser ke samping, dan baris
 kontrol landscape menempel di tepi kiri/kanan layar.
+
+## 5b. Fitur kenyamanan (apk-12)
+
+- **Layar penuh saat bermain** — bilah atas berubah jadi chip kecil mengambang
+  (☰ menu, ⏸ pause). Ketuk ⌄ di bilah atas untuk membuka menunya lagi; kanvas
+  otomatis mengukur ulang.
+- **Auto-resume** — ROM terakhir dibuka lagi saat aplikasi dijalankan, tanpa
+  import ulang. ROM tetap di perangkat (IndexedDB). Bila penyimpanan WebView
+  terhapus, Kotlin menyimpan salinan ROM terakhir di penyimpanan privat aplikasi
+  dan memulihkannya otomatis (salinan ini dikecualikan dari Android Auto Backup).
+- **Screenshot otomatis pada save state** — setiap Simpan menyertakan thumbnail
+  dan waktu ("3 menit lalu"); keduanya tampil di kartu Slot 1/2.
+- **Export / Import state** — simpan kondisi game ke file `.json` dan pindahkan
+  ke HP lain. Import ditolak dengan penjelasan bila file milik ROM yang berbeda.
+- **Mode atur posisi tombol** — geser D-pad dan A/B ke mana saja; posisi
+  disimpan terpisah untuk portrait dan landscape, dengan tombol reset.
+- **Gaya tombol** — Klasik, Arcade, Retro, Mono, Neon (berbasis CSS variable,
+  jadi menambah gaya baru cukup beberapa baris).
 
 ## 6. Fitur
 
