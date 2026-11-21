@@ -24,7 +24,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   apk:
@@ -100,7 +100,15 @@ jobs:
           APK=$(find android/app/build/outputs/apk -name "*.apk" | head -1)
           echo "APK: $APK"
           ls -lh "$APK"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt2" dump badging "$APK" | head -5 || true
+          SIZE=$(stat -c%s "$APK")
+          SHA=$(sha256sum "$APK" | cut -d" " -f1)
+          BADGING=$("$ANDROID_HOME/build-tools/35.0.0/aapt2" dump badging "$APK" \
+            | grep -E "^(package|sdkVersion|targetSdkVersion|application-label|launchable-activity)" \
+            | tr "\n" " ; ")
+          echo "::notice title=APK::$SIZE bytes | sha256 $SHA | $BADGING"
+          echo "APK_SHA=$SHA" >> "$GITHUB_ENV"
+          echo "APK_SIZE=$SIZE" >> "$GITHUB_ENV"
+          unzip -l "$APK" | grep -E "assets/web/(index.html|emulator.js|app.js|roms/test.nes)" | head -5
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
@@ -109,3 +117,26 @@ jobs:
           path: android/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 30
+
+      # Release assets are downloadable straight from github.com without a
+      # logged-in Actions page, which makes the APK easy to grab on a phone.
+      - name: Publish APK to a GitHub Release
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          APK=$(find android/app/build/outputs/apk -name "*.apk" | head -1)
+          cp "$APK" /tmp/gun-nac-offline-${{ github.run_number }}.apk
+          TAG="apk-${{ github.run_number }}"
+          gh release create "$TAG" \
+            "/tmp/gun-nac-offline-${{ github.run_number }}.apk" \
+            --repo "${{ github.repository }}" \
+            --title "Gun Nac Offline APK #${{ github.run_number }}" \
+            --notes "Debug APK built from \`${{ github.sha }}\`.
+
+          * Paket: \`cc.gunnac.offline\` — minSdk 24, targetSdk 35, no INTERNET permission
+          * sha256: \`${{ env.APK_SHA }}\`
+          * Install: unduh, izinkan *install from unknown sources*, lalu buka.
+          * Player TIDAK menyertakan game. Impor ROM \`.nes\` milik Anda sendiri."
+          echo "::notice title=Release::https://github.com/${{ github.repository }}/releases/tag/$TAG"
