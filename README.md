@@ -42,7 +42,24 @@ Build satu file untuk dibagikan/di-double-click:
 dist/gun-nac-offline.html   # JS di-inline, cukup buka di browser
 ```
 
-## 2. Build aplikasi Kotlin (Android)
+## 2. Unduh APK siap pakai
+
+APK debug sudah dibangun otomatis oleh GitHub Actions dan diterbitkan sebagai
+release asset (tidak perlu login):
+
+**https://github.com/rokhmangalaxy/uireference_galaxy_a05/releases**
+
+- Paket `cc.gunnac.offline` · minSdk 24 (Android 7+) · targetSdk 35
+- Ukuran ± 3,5 MB · **tanpa izin INTERNET**
+- sha256 dicantumkan di catatan setiap release (dibuat oleh CI)
+- Install: unduh di HP → izinkan *Install unknown apps* untuk browser → buka
+  APK. Buka file `.nes` dari file manager → *Open with* → **Gun Nac Offline**.
+
+Setiap push yang mengubah `android/`, `src/`, atau `tools/` memicu build baru
+(`.github/workflows/android-apk.yml`), mengunggah artifact
+`gun-nac-offline-debug-apk`, dan membuat release `apk-<nomor>`.
+
+## 3. Build aplikasi Kotlin (Android) dari sumber
 
 ```bash
 npm install && npm run build     # menyalin dist/ ke android/app/src/main/assets/web
@@ -66,7 +83,7 @@ Kotlin 2.0, minSdk 24, targetSdk 35).
 - `assets/web/roms/` bisa memuat ROM pribadi agar ikut di APK; file itu
   di-*serve* oleh `RomPathHandler` (read-only, tanpa path traversal).
 
-## 3. Yang sudah diuji
+## 4. Yang sudah diuji
 
 | Uji | Perintah | Hasil |
 |---|---|---|
@@ -81,11 +98,12 @@ sendiri untuk memastikan game-nya boot:
 node test/smoke.mjs "roms/gun-nac-usa.nes"
 ```
 
-Build Android tidak bisa dikompilasi di sandbox ini (tidak ada JDK/Android
-SDK), jadi langkah Gradle belum dieksekusi — semua source-nya lengkap dan
-mengikuti API stabil.
+Build Android dikompilasi di GitHub Actions (JDK 17 + Android SDK 35).
+Release `apk-4` adalah build yang lolos: `assembleDebug` sukses, `apksigner
+verify` lolos, dan APK memuat `assets/web/` (index.html, emulator.js, app.js,
+roms/test.nes).
 
-## 4. Fitur
+## 5. Fitur
 
 - Kontrol sentuh: D-pad radial (geser jempol tanpa lepas), A/B, Start, Select.
 - Keyboard: panah, `Z`/`X` (A/B), `Enter` Start, `Shift` Select, `Tab` Select.
@@ -94,7 +112,7 @@ mengikuti API stabil.
 - Mute, pause, reset, fullscreen, thumbnail library, drag & drop file.
 - Info mapper: build ini mendukung mapper 0/1/2/3/4/5/7/9/11/34/38/66/71/79/94/118/119/140/180/240/241 (Gun Nac memakai MMC3/mapper 4).
 
-## 5. Struktur
+## 6. Struktur
 
 ```
 index.html, manifest.webmanifest, sw.js   # shell PWA
@@ -108,7 +126,7 @@ roms/                                     # tempat Anda menaruh ROM sendiri (git
 docs/UNDUH-DAN-BERMAIN.md                 # panduan hosting/memasang
 ```
 
-## 6. Kenapa bukan emulator native Kotlin?
+## 7. Kenapa bukan emulator native Kotlin?
 
 Bisa saja (mis. core libretro/Nostalgia.NES via NDK), tapi jsnes memberi hasil
 identik untuk NES, jauh lebih mudah diaudit, dan satu codebase dipakai di web +

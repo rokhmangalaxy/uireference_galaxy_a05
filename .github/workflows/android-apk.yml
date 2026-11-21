@@ -108,7 +108,13 @@ jobs:
           echo "::notice title=APK::$SIZE bytes | sha256 $SHA | $BADGING"
           echo "APK_SHA=$SHA" >> "$GITHUB_ENV"
           echo "APK_SIZE=$SIZE" >> "$GITHUB_ENV"
-          unzip -l "$APK" | grep -E "assets/web/(index.html|emulator.js|app.js|roms/test.nes)" | head -5
+          echo "== assets bundled in the APK =="
+          unzip -l "$APK" | grep "assets/web/" | awk '{print $4" ("$1" B)"}' | head -12
+          WEB_ASSETS=$(unzip -l "$APK" | grep -c "assets/web/")
+          echo "::notice title=Contents::$WEB_ASSETS assets/web entries (index.html, emulator.js, app.js, roms/test.nes expected)"
+          echo "== signature =="
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$APK" | head -4
+          echo "::notice title=Signature::$(("$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$APK" | grep -m1 "SHA-256") || echo unknown)"
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
