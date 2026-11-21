@@ -1,6 +1,6 @@
 # UI Style Gallery
 
-Proyek Android Kotlin + Jetpack Compose untuk membandingkan 20 gaya UI pada layar dan komponen yang sama. Buka menu hamburger di kiri atas, lalu pilih gaya untuk langsung menerapkannya ke aplikasi. Pilihan gaya disimpan di perangkat. Status bar dan navigation bar Android tetap ditampilkan; aplikasi tidak menggunakan mode fullscreen.
+Proyek Android Kotlin + Jetpack Compose untuk membandingkan 20 gaya UI pada layar dan komponen yang sama. Buka menu hamburger di kiri atas untuk melihat grid tiga kolom berisi pratinjau mini, lalu pilih gaya untuk langsung menerapkannya ke aplikasi. Pratinjau merupakan ilustrasi ringkas warna dan bentuk, bukan tangkapan layar penuh. Pilihan gaya disimpan di perangkat. Status bar dan navigation bar Android tetap ditampilkan; aplikasi tidak menggunakan mode fullscreen.
 
 ## Nama yang digunakan
 
@@ -34,7 +34,7 @@ Setelah job berhasil, buka halaman run tersebut di tab **Actions**, lalu unduh a
 
 Contoh mencakup Material Design 3, Minimalis, Dark Mode, Glassmorphism, Neumorphism, Bento Grid, Flat, Gradient, Brutalist, Pastel, Editorial, Illustration-First, Card-Based, Data-Dense Dashboard, Nature-Inspired, Neon, Retro, Gamified, Luxury, dan Conversational UI.
 
-Setiap gaya mengubah palet, bentuk, dan tipografi komponen yang sama. Layar menyediakan tab, kartu, indikator progres, tombol, dialog, kolom teks, dropdown, radio, switch, slider, checkbox, chip, dan snackbar. Kontrol dapat dicoba dan status formulir dipertahankan saat mengganti gaya, tetapi data rencana hanya contoh dan tidak disimpan atau dikirim ke layanan. Efek kaca dan neumorphism merupakan interpretasi visual sederhana, bukan simulasi blur atau bayangan realistis. Ikon bawaan Material digunakan agar proyek tidak bergantung pada aset gambar eksternal.
+Setiap gaya mengubah palet, bentuk, dan tipografi komponen yang sama, termasuk navigasi bawah. Navigasi **Beranda**, **Rencana**, dan **Komponen** membuka bagian yang berbeda; tombol Back Android kembali ke Beranda. Layar menyediakan tab, kartu, indikator progres, tombol, dialog, kolom teks, dropdown, radio, switch, slider, checkbox, chip, dan snackbar. Kontrol dapat dicoba dan status formulir dipertahankan saat mengganti gaya, tetapi data rencana hanya contoh dan tidak disimpan atau dikirim ke layanan. Efek kaca dan neumorphism merupakan interpretasi visual sederhana, bukan simulasi blur atau bayangan realistis. Ikon bawaan Material digunakan agar proyek tidak bergantung pada aset gambar eksternal.
 
 Untuk menjalankan tes UI pada emulator atau perangkat yang terhubung:
 
