@@ -50,10 +50,12 @@ release asset (tidak perlu login):
 **https://github.com/rokhmangalaxy/uireference_galaxy_a05/releases**
 
 - Paket `com.rokhmangalaxy.pocketnes` · minSdk 24 (Android 7+) · targetSdk 35
-- Ukuran 3.665.074 byte (± 3,5 MB) · **tanpa izin INTERNET**
-- Release terbaru: **apk-7** — sha256
-  `0b76eafeef6d3050347cedde1a5d937c103be648f966107b7e6fc8fe7e9352e8`
-  (dibuat & diverifikasi CI, termasuk `apksigner verify`)
+- Ukuran 3.671.754 byte (± 3,5 MB) · **tanpa izin INTERNET**
+- Release terbaru: **apk-8** — sha256
+  `7519fae3d133fe988acd0e2e43c0c989f57acdadc7677d70c8b36ee047f5d6ac`
+  (dibuat & diverifikasi CI, termasuk `apksigner verify`). Ini build pertama
+  yang import ROM-nya benar-benar jalan; apk-7 dan sebelumnya **jangan**
+  dipakai lagi.
 - Install: unduh di HP → izinkan *Install unknown apps* untuk browser → buka
   APK. Buka file `.nes` dari file manager → *Open with* → **Pocket NES**.
 
@@ -61,7 +63,7 @@ Setiap push yang mengubah `android/`, `src/`, atau `tools/` memicu build baru
 (`.github/workflows/android-apk.yml`), mengunggah artifact
 `gun-nac-offline-debug-apk`, dan membuat release `apk-<nomor>`.
 
-## 3. Import ROM di APK (diperbaiki di apk-6)
+## 3. Import ROM di APK (diperbaiki total di apk-8)
 
 - **Import ROM** memakai *Android document picker* lewat
   `WebChromeClient.onShowFileChooser` — inilah yang hilang sebelumnya, sehingga
@@ -113,9 +115,15 @@ node test/smoke.mjs "roms/gun-nac-usa.nes"
 ```
 
 Build Android dikompilasi di GitHub Actions (JDK 17 + Android SDK 35).
-Release `apk-7` adalah build yang lolos: `assembleDebug` sukses, `apksigner
+Release `apk-8` adalah build yang lolos: `assembleDebug` sukses, `apksigner
 verify` lolos, dan APK memuat `assets/web/` (index.html, emulator.js, app.js,
 roms/test.nes) dengan paket `com.rokhmangalaxy.pocketnes`.
+
+Sebelum build, `npm test` menjalankan tiga lapis uji: smoke core (mapper 0 **dan
+mapper 4/MMC3** — mapper yang dipakai Gun Nac), uji bundle hasil build, dan
+`test/e2e-import.test.mjs` yang meniru alur import di WebView (baik lewat
+`<input type=file>` maupun lewat bridge Kotlin, termasuk ROM yang dikirim
+bertahap 60 ribu karakter).
 
 ## 6. Fitur
 
