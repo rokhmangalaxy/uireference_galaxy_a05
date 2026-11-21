@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Gun Nac Offline</string>
+    <string name="not_a_rom">File itu bukan ROM .nes</string>
+    <string name="rom_too_big">ROM lebih dari 8 MB — tidak didukung</string>
+    <string name="rom_unreadable">Tidak bisa membaca file ROM</string>
+</resources>

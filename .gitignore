@@ -1,0 +1,10 @@
+node_modules/
+dist/
+# Android build output
+android/.gradle/
+android/local.properties
+android/**/build/
+android/app/src/main/assets/web/
+# OS/editor noise
+.DS_Store
+*.log

@@ -1,0 +1,540 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0b0f14">
+<meta name="description" content="Player NES offline untuk ROM yang Anda miliki sendiri. Tanpa server, tanpa internet, tanpa unduhan game.">
+<title>Gun Nac — Offline NES Player</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<style>
+  :root {
+    --bg: #0b0f14;
+    --panel: #121924;
+    --panel-2: #1a2433;
+    --ink: #e7eef7;
+    --muted: #8ea0b7;
+    --accent: #ffcc33;
+    --accent-2: #39d3ff;
+    --danger: #ff5a6a;
+    --radius: 18px;
+    --safe-b: env(safe-area-inset-bottom, 0px);
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: radial-gradient(120% 90% at 50% 0%, #182235 0%, var(--bg) 60%);
+    color: var(--ink);
+    font: 15px/1.45 ui-sans-serif, system-ui, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior: none;
+  }
+  button { font: inherit; color: inherit; }
+  .shell {
+    min-height: 100dvh;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    padding: max(10px, env(safe-area-inset-top)) 12px calc(12px + var(--safe-b));
+    gap: 10px;
+  }
+
+  /* ---------------------------------------------------------- top bar -- */
+  .bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 48px;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    flex: 1;
+  }
+  .logo {
+    width: 38px; height: 38px;
+    border-radius: 11px;
+    background: linear-gradient(145deg, #2b3d55, #131b26);
+    border: 1px solid #2c3d54;
+    display: grid; place-items: center;
+    font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+    font-weight: 800;
+    color: var(--accent);
+    font-size: 13px;
+    letter-spacing: .5px;
+    box-shadow: 0 2px 0 #05080d;
+  }
+  .brand h1 {
+    margin: 0;
+    font-size: 15px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .brand small {
+    display: block;
+    color: var(--muted);
+    font-size: 11px;
+    letter-spacing: .08em;
+  }
+  .icon-btn {
+    flex: none;
+    width: 44px; height: 44px;
+    border-radius: 13px;
+    border: 1px solid #263449;
+    background: var(--panel);
+    color: var(--ink);
+    display: grid; place-items: center;
+    font-size: 18px;
+    cursor: pointer;
+    transition: transform .08s ease, background .15s ease;
+  }
+  .icon-btn:active { transform: scale(.94); background: var(--panel-2); }
+  .icon-btn[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+
+  /* ------------------------------------------------------------ stage -- */
+  .stage {
+    position: relative;
+    display: grid;
+    place-items: center;
+    border-radius: var(--radius);
+    background:
+      linear-gradient(180deg, #0e1520, #0a0f16);
+    border: 1px solid #1b2739;
+    box-shadow: 0 24px 60px -30px #000, inset 0 1px 0 #223146;
+    overflow: hidden;
+    min-height: 46dvh;
+  }
+  .stage::after {
+    /* subtle scanlines; disabled for users who prefer reduced motion */
+    content: "";
+    position: absolute; inset: 0;
+    pointer-events: none;
+    background: repeating-linear-gradient(
+      to bottom, rgba(0,0,0,.14) 0 1px, transparent 1px 3px);
+    mix-blend-mode: multiply;
+    opacity: .55;
+  }
+  #screen {
+    display: block;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    background: #000;
+    box-shadow: 0 0 0 1px #000, 0 18px 40px -18px #000;
+    border-radius: 3px;
+  }
+  .idle {
+    position: absolute;
+    inset: auto 0 0 0;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    background: linear-gradient(transparent, rgba(5, 8, 12, .92) 45%);
+    font-size: 12.5px;
+    color: var(--muted);
+  }
+  .shell.playing .idle { display: none; }
+  .shell:not(.playing) .stage { min-height: 42dvh; }
+  .stage .hud {
+    position: absolute;
+    top: 10px; left: 10px;
+    display: none;
+    gap: 6px;
+    font-family: ui-monospace, Menlo, monospace;
+    font-size: 11px;
+    color: var(--muted);
+    background: rgba(6,10,16,.6);
+    border: 1px solid #223146;
+    border-radius: 999px;
+    padding: 3px 9px;
+    backdrop-filter: blur(6px);
+  }
+  .shell.playing .stage .hud { display: inline-flex; }
+  .hud b { color: var(--accent-2); font-weight: 600; }
+
+  /* ---------------------------------------------------------- library -- */
+  .menu {
+    position: absolute;
+    inset: 0;
+    padding: 16px 14px calc(14px + var(--safe-b));
+    background: rgba(7, 11, 17, .94);
+    backdrop-filter: blur(10px);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    transform: translateY(102%);
+    transition: transform .28s cubic-bezier(.2,.8,.2,1);
+    z-index: 5;
+    overflow: auto;
+  }
+  .shell.menu-open .menu { transform: none; }
+  .menu-head { display: flex; align-items: center; gap: 10px; }
+  .menu-head h2 { margin: 0; font-size: 13px; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); flex: 1; }
+  .menu-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .btn {
+    border: 1px solid #2a3a52;
+    background: linear-gradient(#1b2637, #141c28);
+    border-radius: 13px;
+    padding: 11px 14px;
+    font-weight: 650;
+    letter-spacing: .02em;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    box-shadow: 0 2px 0 #05080d;
+    transition: transform .08s ease, border-color .15s;
+  }
+  .btn:active { transform: translateY(1px); }
+  .btn.primary {
+    background: linear-gradient(#ffd85e, #f2b90c);
+    color: #221a00;
+    border-color: #ffe28a;
+    box-shadow: 0 3px 0 #8a6700;
+  }
+  .btn.ghost { background: transparent; border-color: #223146; color: var(--muted); box-shadow: none; }
+  .btn.danger { color: var(--danger); border-color: #4a2530; background: #1a1216; box-shadow: none; }
+
+  .lib-list {
+    list-style: none;
+    margin: 0; padding: 0;
+    display: grid;
+    gap: 8px;
+  }
+  .lib-item {
+    display: flex;
+    gap: 8px;
+    align-items: stretch;
+  }
+  .lib-play {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 56px 1fr auto;
+    align-items: center;
+    gap: 12px;
+    text-align: left;
+    background: var(--panel);
+    border: 1px solid #223146;
+    border-radius: 14px;
+    padding: 8px;
+    cursor: pointer;
+  }
+  .lib-play:active { background: var(--panel-2); }
+  .lib-thumb {
+    width: 56px; height: 52px;
+    border-radius: 9px;
+    background: #06090d;
+    border: 1px solid #223146;
+    display: grid; place-items: center;
+    font: 700 11px/1 ui-monospace, Menlo, monospace;
+    color: #3c4d66;
+    overflow: hidden;
+  }
+  .lib-thumb img { width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; }
+  .lib-meta { min-width: 0; }
+  .lib-meta strong { display: block; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lib-meta small { color: var(--muted); font-size: 11.5px; }
+  .lib-go { color: var(--accent); padding-right: 6px; }
+  .lib-del {
+    flex: none;
+    width: 44px;
+    border-radius: 13px;
+    border: 1px solid #33202a;
+    background: #150f13;
+    color: #8a5b66;
+    cursor: pointer;
+  }
+  .empty {
+    margin: auto;
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+    padding: 20px;
+    line-height: 1.6;
+  }
+  .empty strong { color: var(--ink); display: block; margin-bottom: 6px; }
+
+  /* ------------------------------------------------------ save states -- */
+  .slots { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .slot {
+    border: 1px solid #223146;
+    background: var(--panel);
+    border-radius: 14px;
+    padding: 9px 10px;
+    display: grid;
+    gap: 6px;
+  }
+  .slot header { font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+  .slot .row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .slot button {
+    border-radius: 9px;
+    border: 1px solid #2a3a52;
+    background: var(--panel-2);
+    padding: 7px 4px;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .slot button:active { transform: translateY(1px); }
+
+  /* ------------------------------------------------------------ pads -- */
+  .controls {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 14px;
+    align-items: center;
+    padding: 2px 2px 0;
+    touch-action: none;
+    user-select: none;
+  }
+  .dpad {
+    position: relative;
+    width: min(46vw, 168px);
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background:
+      radial-gradient(circle at 50% 50%, #1b2534 0 32%, transparent 33%),
+      linear-gradient(180deg, #151d29, #0f151e);
+    border: 1px solid #223146;
+    box-shadow: 0 6px 0 #05080d, inset 0 1px 0 #2b3d55;
+    touch-action: none;
+  }
+  .dpad::before, .dpad::after {
+    content: "";
+    position: absolute;
+    background: linear-gradient(#26374d, #19232f);
+    border-radius: 9px;
+    box-shadow: 0 2px 0 #05080d;
+  }
+  .dpad::before { left: 18%; right: 18%; top: 34%; bottom: 34%; }
+  .dpad::after { top: 18%; bottom: 18%; left: 34%; right: 34%; }
+  .dpad span {
+    position: absolute;
+    color: #5d7290;
+    font-size: 11px;
+    font-weight: 700;
+    pointer-events: none;
+  }
+  .dpad .u { top: 8%; left: 50%; transform: translateX(-50%); }
+  .dpad .d { bottom: 8%; left: 50%; transform: translateX(-50%); }
+  .dpad .l { left: 9%; top: 50%; transform: translateY(-50%); }
+  .dpad .r { right: 9%; top: 50%; transform: translateY(-50%); }
+
+  .pad-right {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 8px;
+    justify-items: center;
+    align-items: center;
+  }
+  .round {
+    width: 62px; height: 62px;
+    border-radius: 50%;
+    border: 1px solid #3a2f18;
+    background: radial-gradient(circle at 35% 30%, #ffe066, #e0a400);
+    color: #2a1d00;
+    font-weight: 900;
+    font-size: 17px;
+    display: grid; place-items: center;
+    box-shadow: 0 5px 0 #7a5a00, 0 8px 18px -8px #000;
+    cursor: pointer;
+    touch-action: none;
+  }
+  .round.b {
+    background: radial-gradient(circle at 35% 30%, #ff8f9c, #d33b52);
+    border-color: #4a2029;
+    box-shadow: 0 5px 0 #6f1d29, 0 8px 18px -8px #000;
+    color: #2a0008;
+  }
+  .round:active, .round.active { transform: translateY(3px); box-shadow: 0 2px 0 #7a5a00; }
+  .small-pills {
+    grid-column: 1 / -1;
+    display: flex;
+    gap: 8px;
+  }
+  .pill {
+    border: 1px solid #223146;
+    background: #101822;
+    border-radius: 999px;
+    padding: 7px 14px;
+    font-size: 11px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    cursor: pointer;
+    touch-action: none;
+  }
+  .pill.active { border-color: var(--accent); color: var(--accent); }
+
+  /* ------------------------------------------------------------ misc -- */
+  #toast {
+    position: fixed;
+    left: 50%;
+    bottom: calc(18px + var(--safe-b));
+    transform: translate(-50%, 20px);
+    background: #0f1620ee;
+    border: 1px solid #2a3a52;
+    color: var(--ink);
+    padding: 10px 16px;
+    border-radius: 999px;
+    font-size: 13px;
+    box-shadow: 0 16px 40px -18px #000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .2s, transform .2s;
+    max-width: min(92vw, 460px);
+    text-align: center;
+    z-index: 60;
+  }
+  #toast.show { opacity: 1; transform: translate(-50%, 0); }
+  .shell.dragging .stage { outline: 2px dashed var(--accent-2); outline-offset: -8px; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  #loader {
+    position: fixed; inset: 0; display: grid; place-items: center;
+    background: var(--bg); z-index: 99; gap: 12px;
+    font: 600 12px/1 ui-monospace, Menlo, monospace;
+    letter-spacing: .24em; color: var(--muted); text-transform: uppercase;
+  }
+  #loader .bar2 { width: 120px; height: 3px; background: #1b2739; overflow: hidden; border-radius: 2px; }
+  #loader .bar2::after {
+    content: ""; display: block; height: 100%; width: 40%;
+    background: var(--accent);
+    animation: slide 1s infinite ease-in-out;
+  }
+  @keyframes slide { 0% { transform: translateX(-100%);} 100% { transform: translateX(300%);} }
+  @media (min-width: 900px) {
+    .shell { max-width: 1120px; margin: 0 auto; padding-inline: 20px; }
+    .stage { min-height: 58vh; }
+    .dpad { width: 168px; }
+    .round { width: 66px; height: 66px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .stage::after { display: none; }
+    .menu, #toast, .btn, .icon-btn, .round { transition: none; }
+  }
+  @media (orientation: landscape) and (max-height: 560px) {
+    .shell { grid-template-rows: auto 1fr; }
+    .bar { min-height: 40px; }
+    .controls {
+      position: fixed; inset: auto 0 calc(6px + var(--safe-b)) 0;
+      padding: 0 14px; grid-template-columns: auto 1fr auto;
+      pointer-events: none;
+    }
+    .dpad, .pad-right { pointer-events: auto; }
+    .shell.playing .stage { min-height: 0; }
+  }
+  html.native body {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .noscript { margin: 40px auto; max-width: 520px; padding: 20px; border: 1px solid #2a3a52; border-radius: 14px; }
+</style>
+</head>
+<body>
+<div class="shell" id="shell">
+  <div id="loader"><span>Loading emulator</span><div class="bar2"></div></div>
+
+  <header class="bar">
+    <button class="icon-btn" id="open-menu" aria-label="Buka library ROM">☰</button>
+    <div class="brand">
+      <div class="logo">GN</div>
+      <div>
+        <h1 id="game-title">Gun Nac</h1>
+        <small>Offline NES Player · ROM lokal Anda</small>
+      </div>
+    </div>
+    <button class="icon-btn" id="btn-mute" aria-label="Bisukan suara" aria-pressed="false">🔊</button>
+    <button class="icon-btn" id="btn-pause" aria-label="Pause" aria-pressed="false">⏸</button>
+  </header>
+
+  <main class="stage" id="stage">
+    <canvas id="screen" width="256" height="240" aria-label="Layar game"></canvas>
+    <div class="hud"><span id="fps">—</span> <b>FPS</b></div>
+    <div class="idle">
+      <span>Tekan ☰ untuk memilih file <code>.nes</code> milik sendiri.</span>
+      <button class="icon-btn" id="btn-full" aria-label="Layar penuh">⛶</button>
+    </div>
+
+    <section class="menu" id="menu" aria-label="Library ROM">
+      <div class="menu-head">
+        <h2>Library ROM</h2>
+        <button class="icon-btn" id="close-menu" aria-label="Tutup">✕</button>
+      </div>
+
+      <div class="menu-actions">
+        <button class="btn primary" id="import-rom">＋ Import ROM</button>
+        <button class="btn" id="play-test">▶ Test ROM</button>
+      </div>
+      <input type="file" id="file" accept=".nes,.fds,.unf,.unif" class="sr">
+      <input type="file" id="drop" class="sr">
+
+      <ul class="lib-list" id="library-list"></ul>
+      <p class="empty" id="lib-empty" hidden>
+        <strong>Belum ada ROM</strong>
+        Import file <code>.nes</code> yang Anda miliki sendiri. Semua file
+        disimpan di perangkat ini (IndexedDB) dan tidak pernah diunggah.
+      </p>
+
+      <div class="slots">
+        <div class="slot">
+          <header>Slot 1</header>
+          <div class="row">
+            <button data-action="save">Simpan</button>
+            <button data-action="load">Muat</button>
+          </div>
+        </div>
+        <div class="slot">
+          <header>Slot 2</header>
+          <div class="row">
+            <button data-action="save2">Simpan</button>
+            <button data-action="load2">Muat</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="menu-actions">
+        <button class="btn ghost" id="btn-reset">⟲ Reset</button>
+        <button class="btn ghost" id="btn-shot">⤓ Screenshot</button>
+      </div>
+
+      <p class="empty" style="padding: 4px 0 12px; font-size: 11.5px;">
+        Aplikasi ini tidak menyertakan game apa pun. Gun Nac © Compile/ASCII —
+        gunakan hanya ROM yang Anda beli dan dump sendiri.
+      </p>
+      <div id="save-slot" hidden></div>
+    </section>
+  </main>
+
+  <footer class="controls" id="controls">
+    <div class="dpad" id="dpad" aria-label="D-pad">
+      <span class="u">▲</span><span class="d">▼</span><span class="l">◀</span><span class="r">▶</span>
+    </div>
+    <div class="pad-right">
+      <button class="round b" id="btn-b" aria-label="Tombol B">B</button>
+      <button class="round" id="btn-a" aria-label="Tombol A">A</button>
+      <div class="small-pills">
+        <button class="pill" id="btn-select">Select</button>
+        <button class="pill" id="btn-start">Start</button>
+      </div>
+    </div>
+  </footer>
+</div>
+
+<div id="toast" role="status" aria-live="polite"></div>
+
+<noscript>
+  <div class="noscript">Aplikasi ini butuh JavaScript untuk menjalankan emulator NES.</div>
+</noscript>
+
+<script src="emulator.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

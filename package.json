@@ -1,0 +1,17 @@
+{
+  "name": "gun-nac-offline",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Offline NES player (jsnes) for playing legally-owned ROMs, plus a Kotlin Android wrapper.",
+  "type": "module",
+  "scripts": {
+    "build": "node tools/build.mjs",
+    "test": "node test/smoke.mjs && node test/bundle.test.mjs",
+    "serve": "node tools/serve.mjs",
+    "rom": "node tools/make-test-rom.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "jsnes": "^3.0.0"
+  }
+}

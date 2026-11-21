@@ -1,0 +1,48 @@
+name: build-and-test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+      - run: node test/bundle.test.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gun-nac-offline-web
+          path: dist/
+
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: android-actions/setup-android@v3
+      - run: npm ci && npm run build
+      - name: Build APK
+        working-directory: android
+        run: |
+          # The Gradle wrapper JAR is generated on first run of a local Gradle.
+          gradle wrapper --gradle-version 8.11.1
+          ./gradlew assembleDebug --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gun-nac-offline-apk
+          path: android/app/build/outputs/apk/debug/*.apk
